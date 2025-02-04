@@ -20,6 +20,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const saveScan = useMutation({
     mutationFn: async (scan: InsertScan) => {
@@ -44,26 +45,38 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       }
 
       console.log("Requesting camera access...");
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false
       });
 
+      setStream(mediaStream);
+
       if (!videoRef.current) {
-        console.log("Video ref not available");
-        return;
+        console.error("Video ref not available");
+        throw new Error("Video element not initialized");
       }
 
       console.log("Setting up video stream...");
-      videoRef.current.srcObject = stream;
+      videoRef.current.srcObject = mediaStream;
       videoRef.current.setAttribute("playsinline", "true");
       videoRef.current.muted = true;
 
-      await videoRef.current.play();
-      console.log("Video stream started successfully");
+      // Wait for the video to be ready
+      await new Promise<void>((resolve, reject) => {
+        if (!videoRef.current) return reject(new Error("Video element not found"));
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play()
+            .then(() => {
+              console.log("Video stream started successfully");
+              resolve();
+            })
+            .catch(reject);
+        };
+      });
 
       setHasPermission(true);
-      setIsInitializing(false);
+      setIsScanning(true);
 
       console.log("Camera initialization complete");
       toast({
@@ -73,7 +86,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     } catch (err) {
       console.error("Camera initialization error:", err);
       setHasPermission(false);
-      setIsInitializing(false);
       const message = err instanceof Error ? err.message : "Failed to access camera";
       toast({
         variant: "destructive",
@@ -81,6 +93,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         description: message,
       });
       onError(new Error(message));
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -93,7 +107,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     const startScanning = async () => {
       try {
         reader = new BrowserMultiFormatReader();
-        reader.setFormats([BarcodeFormat.PDF_417]);
+        const hints = new Map();
+        hints.set(2, [BarcodeFormat.PDF_417]); // 2 is DecodeHints.POSSIBLE_FORMATS
 
         await reader.decodeFromVideoDevice(
           undefined,
@@ -121,13 +136,22 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       console.log("Cleaning up scanner...");
       if (reader) {
         try {
-          reader.reset();
+          reader.stopContinuousDecode();
         } catch (err) {
           console.error("Error cleaning up reader:", err);
         }
       }
     };
   }, [isScanning, hasPermission, onError, saveScan, setIsScanning]);
+
+  // Cleanup effect for the media stream
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const handleCameraButton = () => {
     console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
