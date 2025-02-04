@@ -120,13 +120,16 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     const startScanning = async () => {
       try {
-        // Create a new reader instance
+        // Create a new reader instance if needed
         if (!readerRef.current) {
           readerRef.current = new BrowserMultiFormatReader();
         }
 
         const hints = new Map();
         hints.set(2, [BarcodeFormat.PDF_417]);
+
+        await videoRef.current!.play();
+        console.log("Video playback resumed");
 
         // Start decoding from video device
         await readerRef.current.decodeFromVideoDevice(
@@ -154,6 +157,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     return () => {
       console.log("Cleaning up scanner...");
       isMounted = false;
+      if (videoRef.current) {
+        videoRef.current.pause();
+        console.log("Video playback paused");
+      }
       // The reader will be automatically destroyed when decodeFromVideoDevice stops
       readerRef.current = null;
     };
@@ -166,6 +173,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
       readerRef.current = null;
     };
   }, [stream]);
@@ -175,10 +185,15 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission && stream) {
-      // Toggle video tracks instead of trying to close the reader
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !isScanning;
-      });
+      if (videoRef.current) {
+        if (isScanning) {
+          videoRef.current.pause();
+          console.log("Video paused");
+        } else {
+          videoRef.current.play().catch(console.error);
+          console.log("Video resumed");
+        }
+      }
       setIsScanning(!isScanning);
     }
   };
@@ -187,11 +202,19 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className="w-full h-full object-cover"
+        className={`w-full h-full object-cover ${!isScanning ? 'brightness-50' : ''}`}
         playsInline
         muted
       />
-      {hasPermission && <ScannerOverlay />}
+      {hasPermission && isScanning && <ScannerOverlay />}
+
+      {!isScanning && hasPermission && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="bg-black/50 text-white px-4 py-2 rounded">
+            Scanner Paused
+          </div>
+        </div>
+      )}
 
       {!hasPermission && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
