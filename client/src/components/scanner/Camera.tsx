@@ -153,8 +153,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       isMounted = false;
       if (readerRef.current) {
         try {
-          // Stop the current scanning session
-          readerRef.current.stopAsyncDecode();
+          readerRef.current.stopContinuousDecode();
           readerRef.current = null;
         } catch (err) {
           console.error("Error cleaning up reader:", err);
@@ -167,7 +166,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   useEffect(() => {
     return () => {
       if (readerRef.current) {
-        readerRef.current.stopAsyncDecode();
+        readerRef.current.stopContinuousDecode();
         readerRef.current = null;
       }
       if (stream) {
