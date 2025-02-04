@@ -149,7 +149,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       console.log("Cleaning up scanner...");
       if (reader) {
         try {
-          reader.reset();
+          reader.stopContinuousDecode();
         } catch (err) {
           console.error("Error cleaning up reader:", err);
         }
@@ -182,24 +182,28 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         playsInline
         muted
       />
-      <ScannerOverlay />
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-        <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
-          <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
-          <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
-          <p className="text-sm text-muted-foreground mb-4 text-center">
-            Please allow camera access when prompted by your browser
-          </p>
-          <Button 
-            variant="default"
-            className="w-full"
-            onClick={handleCameraButton}
-            disabled={isInitializing}
-          >
-            {isInitializing ? "Requesting Access..." : "Enable Camera"}
-          </Button>
+      {hasPermission && <ScannerOverlay />}
+
+      {!hasPermission && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
+            <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
+            <p className="text-sm text-muted-foreground mb-4 text-center">
+              Please allow camera access when prompted by your browser
+            </p>
+            <Button 
+              variant="default"
+              className="w-full"
+              onClick={handleCameraButton}
+              disabled={isInitializing}
+            >
+              {isInitializing ? "Requesting Access..." : "Enable Camera"}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
+
       {hasPermission && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[100]">
           <Button
