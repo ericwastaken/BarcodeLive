@@ -21,7 +21,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [reader, setReader] = useState<BrowserMultiFormatReader | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
 
   const saveScan = useMutation({
     mutationFn: async (scan: InsertScan) => {
@@ -88,10 +88,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       setHasPermission(true);
       setIsScanning(true);
 
-      // Initialize the barcode reader
-      const newReader = new BrowserMultiFormatReader();
-      setReader(newReader);
-
       console.log("Camera initialization complete");
       toast({
         title: "Camera Ready",
@@ -118,17 +114,19 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
   // Handle scanning
   useEffect(() => {
-    if (!isScanning || !videoRef.current || !hasPermission || !reader) return;
+    if (!isScanning || !videoRef.current || !hasPermission) return;
 
     console.log("Starting barcode scanning...");
     let isMounted = true;
 
     const startScanning = async () => {
       try {
+        // Create a new reader instance for each scanning session
+        readerRef.current = new BrowserMultiFormatReader();
         const hints = new Map();
         hints.set(2, [BarcodeFormat.PDF_417]);
 
-        await reader.decodeFromVideoDevice(
+        await readerRef.current.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
           async (result) => {
@@ -153,41 +151,37 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     return () => {
       console.log("Cleaning up scanner...");
       isMounted = false;
-      if (reader) {
+      if (readerRef.current) {
         try {
-          reader.reset();
+          // Stop the current scanning session
+          readerRef.current.stopAsyncDecode();
+          readerRef.current = null;
         } catch (err) {
           console.error("Error cleaning up reader:", err);
         }
       }
     };
-  }, [isScanning, hasPermission, onError, saveScan, setIsScanning, reader]);
+  }, [isScanning, hasPermission, onError, saveScan, setIsScanning]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (reader) {
-        reader.reset();
-        setReader(null);
+      if (readerRef.current) {
+        readerRef.current.stopAsyncDecode();
+        readerRef.current = null;
       }
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
     };
-  }, [stream, reader]);
+  }, [stream]);
 
   const handleCameraButton = () => {
     console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission) {
-      if (isScanning) {
-        // Pause scanning
-        if (reader) {
-          reader.reset();
-        }
-      }
       setIsScanning(!isScanning);
     }
   };
