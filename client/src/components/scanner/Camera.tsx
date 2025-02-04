@@ -38,6 +38,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     async function setupCamera() {
       try {
+        // Check if media devices are supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera access is not supported in this browser");
+        }
+
         if (!videoRef.current || !active) return;
 
         // Clean up any existing streams
@@ -50,34 +55,67 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         // Initialize the reader with PDF417 format
         if (!readerRef.current) {
           const hints = new Map();
-          hints.set(2, [BarcodeFormat.PDF_417]); // 2 is DecodeHintType.POSSIBLE_FORMATS
+          hints.set("possibleFormats", [BarcodeFormat.PDF_417]);
+          hints.set("tryHarder", true);
+          console.log("Initializing reader with PDF417 format");
           readerRef.current = new BrowserMultiFormatReader(hints);
         }
 
-        // Start video stream
+        // Try environment camera first, fall back to any available camera
         const constraints = {
-          video: { facingMode: "environment" }
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         };
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log("Requesting camera access...");
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+          console.log("Failed to access environment camera, trying fallback...");
+          // Fallback to any available camera
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+        }
+
         if (videoRef.current && active) {
           videoRef.current.srcObject = stream;
           try {
             // Add a small delay before playing to ensure stream is properly attached
             await new Promise(resolve => setTimeout(resolve, 100));
             await videoRef.current.play();
+            console.log("Camera stream started successfully");
+
+            toast({
+              title: "Camera Ready",
+              description: "Please position the PDF417 barcode within the green frame.",
+            });
           } catch (err) {
             console.error('Error playing video:', err);
-            return;
+            throw new Error("Failed to start video stream");
           }
 
           // Start scanning
           if (readerRef.current && active) {
+            console.log("Starting barcode detection...");
             await readerRef.current.decodeFromVideoDevice(
               undefined,
               videoRef.current,
-              async (result) => {
+              async (result, err) => {
+                if (err) {
+                  console.error("Scanning error:", err);
+                  toast({
+                    variant: "destructive",
+                    title: "Scanning Error",
+                    description: err instanceof Error ? err.message : "An unknown scanning error occurred.",
+                  });
+                }
                 if (result && isScanning && active) {
+                  console.log("Barcode detected:", result.getText());
                   await saveScan.mutateAsync({
                     content: result.getText(),
                     format: "PDF417",
@@ -89,11 +127,19 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           }
         }
       } catch (err) {
+        console.error("Camera setup error:", err);
+        const errorMessage = err instanceof Error ? err.message : "Failed to access camera";
+        toast({
+          variant: "destructive",
+          title: "Camera Error",
+          description: errorMessage,
+        });
         onError(err as Error);
       }
     }
 
     if (isScanning) {
+      console.log("Setting up camera for scanning...");
       setupCamera();
     }
 
@@ -112,7 +158,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         }
       }
     };
-  }, [isScanning, onError, saveScan, setIsScanning]);
+  }, [isScanning, onError, saveScan, setIsScanning, toast]);
 
   return (
     <>
