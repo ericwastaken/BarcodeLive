@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader, BarcodeFormat } from "@zxing/browser";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, Camera as CameraIcon } from "lucide-react";
 import { ScannerOverlay } from "@/components/scanner/ScannerOverlay";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,7 +16,8 @@ interface CameraProps {
 
 export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -34,16 +35,20 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   });
 
   useEffect(() => {
-    let active = true;
+    if (!isScanning || isInitializing) return;
 
-    async function setupCamera() {
+    let active = true;
+    let reader: BrowserMultiFormatReader | null = null;
+
+    async function startCamera() {
       try {
-        // Check if media devices are supported
+        setIsInitializing(true);
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error("Camera access is not supported in this browser");
         }
 
-        if (!videoRef.current || !active) return;
+        if (!videoRef.current) return;
 
         // Clean up any existing streams
         if (videoRef.current.srcObject) {
@@ -52,113 +57,122 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           videoRef.current.srcObject = null;
         }
 
-        // Initialize the reader with PDF417 format
-        if (!readerRef.current) {
-          const hints = new Map();
-          hints.set("possibleFormats", [BarcodeFormat.PDF_417]);
-          hints.set("tryHarder", true);
-          console.log("Initializing reader with PDF417 format");
-          readerRef.current = new BrowserMultiFormatReader(hints);
-        }
+        // Set up video element
+        videoRef.current.setAttribute("playsinline", "true"); // Important for iOS
+        videoRef.current.setAttribute("muted", "true");
+        videoRef.current.setAttribute("autoplay", "true");
 
-        // Try environment camera first, fall back to any available camera
-        const constraints = {
-          video: {
-            facingMode: { ideal: "environment" },
+        // Request camera access with environment facing camera first
+        console.log("Requesting camera access...");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: "environment",
             width: { ideal: 1280 },
             height: { ideal: 720 }
-          }
-        };
+          },
+          audio: false
+        });
 
-        console.log("Requesting camera access...");
-        let stream: MediaStream;
+        if (!active || !videoRef.current) return;
+
+        // Attach stream to video element
+        videoRef.current.srcObject = stream;
+
+        // Wait for video to be ready
+        await new Promise<void>((resolve) => {
+          if (!videoRef.current) return;
+          videoRef.current.onloadedmetadata = () => resolve();
+        });
+
+        console.log("Video metadata loaded, attempting to play...");
+
         try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-          console.log("Failed to access environment camera, trying fallback...");
-          // Fallback to any available camera
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true 
-          });
+          await videoRef.current.play();
+          console.log("Video playing successfully");
+          setHasPermission(true);
+        } catch (playError) {
+          console.error("Error playing video:", playError);
+          throw new Error("Failed to start video stream");
         }
 
-        if (videoRef.current && active) {
-          videoRef.current.srcObject = stream;
-          try {
-            // Add a small delay before playing to ensure stream is properly attached
-            await new Promise(resolve => setTimeout(resolve, 100));
-            await videoRef.current.play();
-            console.log("Camera stream started successfully");
+        // Initialize barcode reader
+        reader = new BrowserMultiFormatReader();
+        console.log("Starting barcode detection...");
 
-            toast({
-              title: "Camera Ready",
-              description: "Please position the PDF417 barcode within the green frame.",
+        // Configure hints for PDF417
+        const hints = new Map();
+        hints.set("possibleFormats", [BarcodeFormat.PDF_417]);
+        hints.set("tryHarder", true);
+
+        await reader.decodeFromVideoElement(videoRef.current, async (result, err) => {
+          if (!active) return;
+
+          if (result) {
+            console.log("Barcode detected:", result.getText());
+            await saveScan.mutateAsync({
+              content: result.getText(),
+              format: "PDF417",
             });
-          } catch (err) {
-            console.error('Error playing video:', err);
-            throw new Error("Failed to start video stream");
+            setIsScanning(false);
+          } else if (err) {
+            // Only log scanning errors if they're not the usual "not found" errors
+            if (!err.message.includes("not found")) {
+              console.error("Scanning error:", err);
+            }
           }
+        });
 
-          // Start scanning
-          if (readerRef.current && active) {
-            console.log("Starting barcode detection...");
-            await readerRef.current.decodeFromVideoDevice(
-              undefined,
-              videoRef.current,
-              async (result, err) => {
-                if (err) {
-                  console.error("Scanning error:", err);
-                  toast({
-                    variant: "destructive",
-                    title: "Scanning Error",
-                    description: err instanceof Error ? err.message : "An unknown scanning error occurred.",
-                  });
-                }
-                if (result && isScanning && active) {
-                  console.log("Barcode detected:", result.getText());
-                  await saveScan.mutateAsync({
-                    content: result.getText(),
-                    format: "PDF417",
-                  });
-                  setIsScanning(false);
-                }
-              }
-            );
-          }
-        }
+        toast({
+          title: "Camera Ready",
+          description: "Position the PDF417 barcode within the green frame",
+        });
       } catch (err) {
-        console.error("Camera setup error:", err);
+        console.error("Camera error:", err);
         const errorMessage = err instanceof Error ? err.message : "Failed to access camera";
+        setHasPermission(false);
         toast({
           variant: "destructive",
           title: "Camera Error",
           description: errorMessage,
         });
-        onError(err as Error);
+        onError(err instanceof Error ? err : new Error(errorMessage));
+      } finally {
+        setIsInitializing(false);
       }
     }
 
-    if (isScanning) {
-      console.log("Setting up camera for scanning...");
-      setupCamera();
-    }
+    startCamera();
 
-    // Cleanup function
     return () => {
       active = false;
-      if (readerRef.current) {
+      if (reader) {
         try {
-          if (videoRef.current?.srcObject) {
-            const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-            tracks.forEach(track => track.stop());
-            videoRef.current.srcObject = null;
-          }
+          reader.stopContinuousDecode();
         } catch (err) {
-          console.error('Error cleaning up camera:', err);
+          console.error("Error stopping reader:", err);
         }
       }
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
     };
-  }, [isScanning, onError, saveScan, setIsScanning, toast]);
+  }, [isScanning, isInitializing, onError, saveScan, setIsScanning, toast]);
+
+  if (!hasPermission) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-900">
+        <div className="text-center text-white p-4">
+          <CameraIcon className="mx-auto h-12 w-12 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Camera Access Required</h3>
+          <p className="text-sm text-gray-300">
+            Please allow camera access to scan barcodes
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -174,6 +188,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           size="lg"
           variant={isScanning ? "destructive" : "default"}
           onClick={() => setIsScanning(!isScanning)}
+          disabled={isInitializing}
         >
           {isScanning ? (
             <>
