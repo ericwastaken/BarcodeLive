@@ -79,9 +79,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
         setHasPermission(true);
 
-        // Initialize barcode reader with PDF417 format
+        // Initialize barcode reader
         reader = new BrowserMultiFormatReader();
-        reader.setFormats([BarcodeFormat.PDF_417]);
+        const hints = new Map();
+        hints.set(2, [BarcodeFormat.PDF_417]); // 2 is DecodeHints.POSSIBLE_FORMATS
 
         // Start continuous scanning
         await reader.decodeFromVideoDevice(
@@ -132,22 +133,23 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       }
       // Clean up reader
       if (reader) {
-        reader.reset();
+        reader.stopContinuousDecode();
       }
     };
   }, [isScanning, onError, saveScan, setIsScanning, toast]);
 
   if (!hasPermission) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-900">
-        <div className="text-center text-white p-4">
-          <CameraIcon className="mx-auto h-12 w-12 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Camera Access Required</h3>
-          <p className="text-sm text-gray-300 mb-4">
-            Please allow camera access when prompted
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+          <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
+          <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
+          <p className="text-sm text-muted-foreground mb-4 text-center">
+            Please allow camera access when prompted by your browser
           </p>
           <Button 
-            variant="outline"
+            variant="default"
+            className="w-full"
             onClick={() => setIsScanning(true)}
             disabled={isInitializing}
           >
@@ -159,7 +161,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   }
 
   return (
-    <>
+    <div className="relative w-full h-full">
       <video
         ref={videoRef}
         className="w-full h-full object-cover"
@@ -167,7 +169,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         muted
       />
       <ScannerOverlay />
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         <Button
           size="lg"
           variant={isScanning ? "destructive" : "default"}
@@ -185,6 +187,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           )}
         </Button>
       </div>
-    </>
+    </div>
   );
 }
