@@ -63,7 +63,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       videoRef.current.setAttribute("playsinline", "true");
       videoRef.current.muted = true;
 
-      // Wait for the video to be ready
       await new Promise<void>((resolve, reject) => {
         if (!videoRef.current) {
           reject(new Error("Video element not found"));
@@ -114,14 +113,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
   // Handle scanning
   useEffect(() => {
-    if (!isScanning || !videoRef.current || !hasPermission) return;
+    if (!isScanning || !videoRef.current || !hasPermission || !stream) return;
 
     console.log("Starting barcode scanning...");
     let isMounted = true;
 
     const startScanning = async () => {
       try {
-        // Create a new reader instance for each scanning session
+        // Create a new reader instance
         if (!readerRef.current) {
           readerRef.current = new BrowserMultiFormatReader();
         }
@@ -129,6 +128,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         const hints = new Map();
         hints.set(2, [BarcodeFormat.PDF_417]);
 
+        // Start decoding from video device
         await readerRef.current.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
@@ -154,28 +154,19 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     return () => {
       console.log("Cleaning up scanner...");
       isMounted = false;
-      if (readerRef.current) {
-        try {
-          readerRef.current.close();
-          readerRef.current = null;
-        } catch (err) {
-          console.error("Error cleaning up reader:", err);
-        }
-      }
+      // The reader will be automatically destroyed when decodeFromVideoDevice stops
+      readerRef.current = null;
     };
-  }, [isScanning, hasPermission, onError, saveScan, setIsScanning]);
+  }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (readerRef.current) {
-        readerRef.current.close();
-        readerRef.current = null;
-      }
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
+      readerRef.current = null;
     };
   }, [stream]);
 
@@ -183,11 +174,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
     if (!hasPermission && !isInitializing) {
       initializeCamera();
-    } else if (hasPermission) {
-      if (isScanning && readerRef.current) {
-        readerRef.current.close();
-        readerRef.current = null;
-      }
+    } else if (hasPermission && stream) {
+      // Toggle video tracks instead of trying to close the reader
+      stream.getVideoTracks().forEach(track => {
+        track.enabled = !isScanning;
+      });
       setIsScanning(!isScanning);
     }
   };
