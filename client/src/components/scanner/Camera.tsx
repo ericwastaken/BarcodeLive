@@ -122,11 +122,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       try {
         // Create a new reader instance if needed
         if (!readerRef.current) {
-          readerRef.current = new BrowserMultiFormatReader();
+          const reader = new BrowserMultiFormatReader(undefined, {
+            formats: [BarcodeFormat.PDF_417]
+          });
+          readerRef.current = reader;
+          console.log("Created new barcode reader with PDF417 format");
         }
-
-        const hints = new Map();
-        hints.set(2, [BarcodeFormat.PDF_417]);
 
         await videoRef.current!.play();
         console.log("Video playback resumed");
@@ -146,6 +147,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             }
           }
         );
+        console.log("Barcode scanning started");
       } catch (err) {
         console.error("Scanning error:", err);
         onError(new Error("Failed to start scanning"));
