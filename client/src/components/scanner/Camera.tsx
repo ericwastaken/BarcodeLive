@@ -34,32 +34,44 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   });
 
   useEffect(() => {
+    let active = true;
+
     async function setupCamera() {
       try {
-        if (!videoRef.current) return;
+        if (!videoRef.current || !active) return;
 
-        // Initialize the reader once
+        // Initialize the reader with PDF417 format
         if (!readerRef.current) {
-          readerRef.current = new BrowserMultiFormatReader(undefined, {
-            delayBetweenScanAttempts: 100,
-            formats: [BarcodeFormat.PDF_417],
-          });
+          const hints = new Map();
+          hints.set(2, [BarcodeFormat.PDF_417]); // 2 is DecodeHintType.POSSIBLE_FORMATS
+          readerRef.current = new BrowserMultiFormatReader(hints);
         }
 
-        // Start continuous scanning
-        await readerRef.current.decodeFromVideoDevice(
-          undefined,
-          videoRef.current,
-          async (result) => {
-            if (result && isScanning) {
-              await saveScan.mutateAsync({
-                content: result.getText(),
-                format: "PDF417",
-              });
-              setIsScanning(false);
+        // Start video stream
+        const constraints = {
+          video: { facingMode: "environment" }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (videoRef.current && active) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+
+          // Start scanning
+          await readerRef.current.decodeFromVideoDevice(
+            undefined,
+            videoRef.current,
+            async (result) => {
+              if (result && isScanning && active) {
+                await saveScan.mutateAsync({
+                  content: result.getText(),
+                  format: "PDF417",
+                });
+                setIsScanning(false);
+              }
             }
-          }
-        );
+          );
+        }
       } catch (err) {
         onError(err as Error);
       }
@@ -67,14 +79,22 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     if (isScanning) {
       setupCamera();
-    } else if (readerRef.current) {
-      readerRef.current.stopContinuousDecode();
     }
 
     // Cleanup function
     return () => {
+      active = false;
       if (readerRef.current) {
-        readerRef.current.stopContinuousDecode();
+        try {
+          readerRef.current.stopStreams();
+          if (videoRef.current?.srcObject) {
+            const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+            tracks.forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+          }
+        } catch (err) {
+          console.error('Error cleaning up camera:', err);
+        }
       }
     };
   }, [isScanning, onError, saveScan, setIsScanning]);
