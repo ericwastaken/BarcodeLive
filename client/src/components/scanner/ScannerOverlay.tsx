@@ -1,7 +1,6 @@
 export function ScannerOverlay() {
   return (
     <div className="absolute inset-0 pointer-events-none">
-      <div className="absolute inset-0 bg-black/50" />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 aspect-[3/1] border-2 border-[#34C759] rounded-lg">
         <div className="absolute inset-0 border-[3px] border-transparent">
           <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#34C759]" />
