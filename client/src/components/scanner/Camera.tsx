@@ -81,8 +81,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
         // Initialize barcode reader with PDF417 format
         reader = new BrowserMultiFormatReader();
-        const formats = [BarcodeFormat.PDF_417];
-        reader.setFormats(formats);
+        reader.setFormats([BarcodeFormat.PDF_417]);
 
         // Start continuous scanning
         await reader.decodeFromVideoDevice(
@@ -133,11 +132,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       }
       // Clean up reader
       if (reader) {
-        try {
-          reader.reset();
-        } catch (err) {
-          console.error("Error stopping reader:", err);
-        }
+        reader.reset();
       }
     };
   }, [isScanning, onError, saveScan, setIsScanning, toast]);
@@ -149,7 +144,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           <CameraIcon className="mx-auto h-12 w-12 mb-4" />
           <h3 className="text-lg font-semibold mb-2">Camera Access Required</h3>
           <p className="text-sm text-gray-300 mb-4">
-            Click the button below to enable camera access
+            Please allow camera access when prompted
           </p>
           <Button 
             variant="outline"
