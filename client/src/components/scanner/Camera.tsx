@@ -34,62 +34,71 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     },
   });
 
-  useEffect(() => {
-    if (!isScanning || !videoRef.current) return;
+  const initializeCamera = async () => {
+    console.log("Starting camera initialization...");
+    try {
+      setIsInitializing(true);
 
-    let active = true;
-    let stream: MediaStream | null = null;
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera API not supported in this browser");
+      }
+
+      console.log("Requesting camera access...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false
+      });
+
+      if (!videoRef.current) {
+        console.log("Video ref not available");
+        return;
+      }
+
+      console.log("Setting up video stream...");
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute("playsinline", "true");
+      videoRef.current.muted = true;
+
+      await videoRef.current.play();
+      console.log("Video stream started successfully");
+
+      setHasPermission(true);
+      setIsInitializing(false);
+
+      console.log("Camera initialization complete");
+      toast({
+        title: "Camera Ready",
+        description: "Position the PDF417 barcode within the frame",
+      });
+    } catch (err) {
+      console.error("Camera initialization error:", err);
+      setHasPermission(false);
+      setIsInitializing(false);
+      const message = err instanceof Error ? err.message : "Failed to access camera";
+      toast({
+        variant: "destructive",
+        title: "Camera Error",
+        description: message,
+      });
+      onError(new Error(message));
+    }
+  };
+
+  useEffect(() => {
+    if (!isScanning || !videoRef.current || !hasPermission) return;
+
+    console.log("Starting barcode scanning...");
     let reader: BrowserMultiFormatReader | null = null;
 
-    async function initializeCamera() {
+    const startScanning = async () => {
       try {
-        setIsInitializing(true);
-
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error("Camera API not supported in this browser");
-        }
-
-        // Request camera access
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-          audio: false
-        });
-
-        if (!active || !videoRef.current) return;
-
-        // Set up video element
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute("playsinline", "true");
-        videoRef.current.muted = true;
-
-        // Wait for video to be loaded
-        await new Promise<void>((resolve) => {
-          if (!videoRef.current) return;
-          videoRef.current.onloadedmetadata = () => {
-            if (videoRef.current) {
-              videoRef.current.play()
-                .then(() => resolve())
-                .catch(err => {
-                  console.error("Play error:", err);
-                  throw new Error("Failed to start video stream");
-                });
-            }
-          };
-        });
-
-        setHasPermission(true);
-
-        // Initialize barcode reader
         reader = new BrowserMultiFormatReader();
-        const hints = new Map();
-        hints.set(2, [BarcodeFormat.PDF_417]); // 2 is DecodeHints.POSSIBLE_FORMATS
+        reader.setFormats([BarcodeFormat.PDF_417]);
 
-        // Start continuous scanning
         await reader.decodeFromVideoDevice(
           undefined,
-          videoRef.current,
+          videoRef.current!,
           async (result) => {
-            if (!active) return;
             if (result) {
               console.log("Barcode detected:", result.getText());
               await saveScan.mutateAsync({
@@ -100,47 +109,38 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             }
           }
         );
-
-        toast({
-          title: "Scanner Ready",
-          description: "Position the PDF417 barcode within the green frame",
-        });
       } catch (err) {
-        console.error("Camera error:", err);
-        setHasPermission(false);
-        const message = err instanceof Error ? err.message : "Failed to access camera";
-        toast({
-          variant: "destructive",
-          title: "Camera Error",
-          description: message,
-        });
-        onError(new Error(message));
-      } finally {
-        setIsInitializing(false);
-      }
-    }
-
-    initializeCamera();
-
-    return () => {
-      active = false;
-      // Clean up video stream
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      // Clean up reader
-      if (reader) {
-        reader.stopContinuousDecode();
+        console.error("Scanning error:", err);
+        onError(new Error("Failed to start scanning"));
       }
     };
-  }, [isScanning, onError, saveScan, setIsScanning, toast]);
+
+    startScanning();
+
+    return () => {
+      console.log("Cleaning up scanner...");
+      if (reader) {
+        try {
+          reader.reset();
+        } catch (err) {
+          console.error("Error cleaning up reader:", err);
+        }
+      }
+    };
+  }, [isScanning, hasPermission, onError, saveScan, setIsScanning]);
+
+  const handleCameraButton = () => {
+    console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
+    if (!hasPermission) {
+      initializeCamera();
+    } else {
+      setIsScanning(!isScanning);
+    }
+  };
 
   if (!hasPermission) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
           <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
           <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
@@ -150,7 +150,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           <Button 
             variant="default"
             className="w-full"
-            onClick={() => setIsScanning(true)}
+            onClick={handleCameraButton}
             disabled={isInitializing}
           >
             {isInitializing ? "Requesting Access..." : "Enable Camera"}
@@ -169,11 +169,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         muted
       />
       <ScannerOverlay />
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[100]">
         <Button
           size="lg"
           variant={isScanning ? "destructive" : "default"}
-          onClick={() => setIsScanning(!isScanning)}
+          onClick={handleCameraButton}
           disabled={isInitializing}
         >
           {isScanning ? (
