@@ -122,7 +122,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     const startScanning = async () => {
       try {
         // Create a new reader instance for each scanning session
-        readerRef.current = new BrowserMultiFormatReader();
+        if (!readerRef.current) {
+          readerRef.current = new BrowserMultiFormatReader();
+        }
+
         const hints = new Map();
         hints.set(2, [BarcodeFormat.PDF_417]);
 
@@ -153,7 +156,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       isMounted = false;
       if (readerRef.current) {
         try {
-          readerRef.current.stopContinuousDecode();
+          readerRef.current.close();
           readerRef.current = null;
         } catch (err) {
           console.error("Error cleaning up reader:", err);
@@ -166,7 +169,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   useEffect(() => {
     return () => {
       if (readerRef.current) {
-        readerRef.current.stopContinuousDecode();
+        readerRef.current.close();
         readerRef.current = null;
       }
       if (stream) {
@@ -181,6 +184,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission) {
+      if (isScanning && readerRef.current) {
+        readerRef.current.close();
+        readerRef.current = null;
+      }
       setIsScanning(!isScanning);
     }
   };
