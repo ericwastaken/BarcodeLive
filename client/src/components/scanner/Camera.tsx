@@ -162,55 +162,55 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
-  if (!hasPermission) {
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-        <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
-          <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
-          <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
-          <p className="text-sm text-muted-foreground mb-4 text-center">
-            Please allow camera access when prompted by your browser
-          </p>
-          <Button 
-            variant="default"
-            className="w-full"
-            onClick={handleCameraButton}
-            disabled={isInitializing}
-          >
-            {isInitializing ? "Requesting Access..." : "Enable Camera"}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative w-full h-full">
-      <video
-        ref={videoRef}
-        className="w-full h-full object-cover"
-        playsInline
-        muted
-      />
-      <ScannerOverlay />
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[100]">
-        <Button
-          size="lg"
-          variant={isScanning ? "destructive" : "default"}
-          onClick={handleCameraButton}
-          disabled={isInitializing}
-        >
-          {isScanning ? (
-            <>
-              <Pause className="mr-2 h-4 w-4" /> Pause
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-4 w-4" /> Resume
-            </>
-          )}
-        </Button>
-      </div>
+      {!hasPermission ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
+            <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
+            <p className="text-sm text-muted-foreground mb-4 text-center">
+              Please allow camera access when prompted by your browser
+            </p>
+            <Button 
+              variant="default"
+              className="w-full"
+              onClick={handleCameraButton}
+              disabled={isInitializing}
+            >
+              {isInitializing ? "Requesting Access..." : "Enable Camera"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            playsInline
+            muted
+          />
+          <ScannerOverlay />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[100]">
+            <Button
+              size="lg"
+              variant={isScanning ? "destructive" : "default"}
+              onClick={handleCameraButton}
+              disabled={isInitializing}
+            >
+              {isScanning ? (
+                <>
+                  <Pause className="mr-2 h-4 w-4" /> Pause
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" /> Resume
+                </>
+              )}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
