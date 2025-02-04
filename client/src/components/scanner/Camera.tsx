@@ -40,6 +40,13 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       try {
         if (!videoRef.current || !active) return;
 
+        // Clean up any existing streams
+        if (videoRef.current.srcObject) {
+          const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+          tracks.forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+        }
+
         // Initialize the reader with PDF417 format
         if (!readerRef.current) {
           const hints = new Map();
@@ -55,22 +62,31 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (videoRef.current && active) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          try {
+            // Add a small delay before playing to ensure stream is properly attached
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await videoRef.current.play();
+          } catch (err) {
+            console.error('Error playing video:', err);
+            return;
+          }
 
           // Start scanning
-          await readerRef.current.decodeFromVideoDevice(
-            undefined,
-            videoRef.current,
-            async (result) => {
-              if (result && isScanning && active) {
-                await saveScan.mutateAsync({
-                  content: result.getText(),
-                  format: "PDF417",
-                });
-                setIsScanning(false);
+          if (readerRef.current && active) {
+            await readerRef.current.decodeFromVideoDevice(
+              undefined,
+              videoRef.current,
+              async (result) => {
+                if (result && isScanning && active) {
+                  await saveScan.mutateAsync({
+                    content: result.getText(),
+                    format: "PDF417",
+                  });
+                  setIsScanning(false);
+                }
               }
-            }
-          );
+            );
+          }
         }
       } catch (err) {
         onError(err as Error);
@@ -86,7 +102,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       active = false;
       if (readerRef.current) {
         try {
-          readerRef.current.stopStreams();
           if (videoRef.current?.srcObject) {
             const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
             tracks.forEach(track => track.stop());
