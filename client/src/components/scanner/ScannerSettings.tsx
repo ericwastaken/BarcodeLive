@@ -67,7 +67,10 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
           <span className="sr-only">Scanner Settings</span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        document.querySelector<HTMLButtonElement>('button[type="button"][variant="outline"]')?.focus();
+      }}>
         <DialogHeader>
           <DialogTitle>Scanner Settings</DialogTitle>
         </DialogHeader>
