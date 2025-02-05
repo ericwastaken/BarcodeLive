@@ -3,6 +3,7 @@ import { scans, type Scan, type InsertScan } from "@shared/schema";
 export interface IStorage {
   createScan(scan: InsertScan): Promise<Scan>;
   getRecentScans(limit: number): Promise<Scan[]>;
+  clearScans(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -29,6 +30,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.scans.values())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
+  }
+
+  async clearScans(): Promise<void> {
+    this.scans.clear();
   }
 }
 
