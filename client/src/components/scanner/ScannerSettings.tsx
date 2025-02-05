@@ -50,9 +50,26 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
     defaultValues: settings,
   });
 
+  const resetZoom = () => {
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+    }
+  };
+
   const onSubmit = (data: ScannerSettings) => {
+    resetZoom();
     onSettingsChange(data);
     setOpen(false);
+  };
+
+  const handleClose = () => {
+    resetZoom();
+    setOpen(false);
+  };
+
+  const handleBlur = () => {
+    resetZoom();
   };
 
   const resetToDefaults = () => {
@@ -83,7 +100,7 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 <FormItem>
                   <FormLabel>Cooldown Time (ms)</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} autoFocus={false} />
+                    <Input type="number" {...field} autoFocus={false} onBlur={handleBlur} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -96,7 +113,7 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 <FormItem>
                   <FormLabel>Expected Data Pattern (Regex)</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} onBlur={handleBlur} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,7 +131,7 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setOpen(false)} 
+                onClick={handleClose} 
                 className="flex-shrink-0 min-w-[80px]"
               >
                 Cancel
