@@ -13,11 +13,17 @@ interface ScanResultProps {
 export function ScanResult({ className = "" }: ScanResultProps) {
   const [scans, setScans] = useState<Scan[]>([]);
 
-  useEffect(() => {
+  const loadScans = () => {
     const storedScans = localStorage.getItem('scans');
     if (storedScans) {
       setScans(JSON.parse(storedScans));
     }
+  };
+
+  useEffect(() => {
+    loadScans();
+    window.addEventListener('scanSaved', loadScans);
+    return () => window.removeEventListener('scanSaved', loadScans);
   }, []);
 
   const clearScans = () => {

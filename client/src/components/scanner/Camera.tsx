@@ -77,6 +77,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         timestamp: new Date(),
       };
       localStorage.setItem('scans', JSON.stringify([newScan, ...scans]));
+      // Emit a custom event when scan is saved
+      window.dispatchEvent(new CustomEvent('scanSaved'));
       playBeep().catch(console.error);
     }
   };
