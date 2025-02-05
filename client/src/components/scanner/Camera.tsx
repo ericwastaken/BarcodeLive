@@ -260,72 +260,75 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col">
-      {/* Title - Always visible */}
-      <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 p-4 text-center">
-        <h1 className="text-white text-xl font-semibold">Barcode Live Scanner</h1>
+    <div className="flex flex-col h-full">
+      {/* Fixed header outside of the video container */}
+      <div className="bg-primary text-primary-foreground py-4 px-6 shadow-md">
+        <h1 className="text-xl font-semibold text-center">Barcode Live Scanner</h1>
       </div>
 
-      <video
-        ref={videoRef}
-        className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
-        playsInline
-        autoPlay
-        muted
-      />
+      {/* Video container */}
+      <div className="relative flex-1">
+        <video
+          ref={videoRef}
+          className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
+          playsInline
+          autoPlay
+          muted
+        />
 
-      <div className="absolute inset-0 z-10">
-        {hasPermission && isScanning && <ScannerOverlay ref={scannerOverlayRef} />}
+        <div className="absolute inset-0 z-10">
+          {hasPermission && isScanning && <ScannerOverlay ref={scannerOverlayRef} />}
 
-        {!isScanning && hasPermission && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <div className="bg-black/50 text-white px-4 py-2 rounded">
-              Scanner Paused
+          {!isScanning && hasPermission && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="bg-black/50 text-white px-4 py-2 rounded">
+                Scanner Paused
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!hasPermission && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+              <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
+              <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
+              <p className="text-sm text-muted-foreground mb-4 text-center">
+                Please allow camera access when prompted by your browser
+              </p>
+              <Button
+                variant="default"
+                className="w-full"
+                onClick={handleCameraButton}
+                disabled={isInitializing}
+              >
+                {isInitializing ? "Requesting Access..." : "Enable Camera"}
+              </Button>
             </div>
           </div>
         )}
-      </div>
 
-      {!hasPermission && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
-            <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
-            <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
-            <p className="text-sm text-muted-foreground mb-4 text-center">
-              Please allow camera access when prompted by your browser
-            </p>
+        {hasPermission && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50">
             <Button
-              variant="default"
-              className="w-full"
+              size="lg"
+              variant={isScanning ? "destructive" : "default"}
               onClick={handleCameraButton}
               disabled={isInitializing}
             >
-              {isInitializing ? "Requesting Access..." : "Enable Camera"}
+              {isScanning ? (
+                <>
+                  <Pause className="mr-2 h-4 w-4" /> Pause
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" /> Resume
+                </>
+              )}
             </Button>
           </div>
-        </div>
-      )}
-
-      {hasPermission && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50">
-          <Button
-            size="lg"
-            variant={isScanning ? "destructive" : "default"}
-            onClick={handleCameraButton}
-            disabled={isInitializing}
-          >
-            {isScanning ? (
-              <>
-                <Pause className="mr-2 h-4 w-4" /> Pause
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" /> Resume
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
