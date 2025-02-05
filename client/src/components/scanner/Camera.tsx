@@ -268,45 +268,47 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       {/* Video container - using flex-1 to take remaining space */}
       <div className="relative flex-1 min-h-0 flex items-center justify-center bg-black">
-        <video
-          ref={videoRef}
-          className={`w-full h-full object-contain transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
-          playsInline
-          autoPlay
-          muted
-        />
+        <div className="w-full max-w-2xl aspect-video">
+          <video
+            ref={videoRef}
+            className={`w-full h-full object-contain transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
+            playsInline
+            autoPlay
+            muted
+          />
 
-        <div className="absolute inset-0 z-10">
-          {hasPermission && isScanning && <ScannerOverlay ref={scannerOverlayRef} />}
+          <div className="absolute inset-0 z-10">
+            {hasPermission && isScanning && <ScannerOverlay ref={scannerOverlayRef} />}
 
-          {!isScanning && hasPermission && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-              <div className="bg-black/50 text-white px-4 py-2 rounded">
-                Scanner Paused
+            {!isScanning && hasPermission && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <div className="bg-black/50 text-white px-4 py-2 rounded">
+                  Scanner Paused
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!hasPermission && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4 my-auto">
+                <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
+                <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
+                <p className="text-sm text-muted-foreground mb-4 text-center">
+                  Please allow camera access when prompted by your browser
+                </p>
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleCameraButton}
+                  disabled={isInitializing}
+                >
+                  {isInitializing ? "Requesting Access..." : "Enable Camera"}
+                </Button>
               </div>
             </div>
           )}
         </div>
-
-        {!hasPermission && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4 my-auto">
-              <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
-              <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
-              <p className="text-sm text-muted-foreground mb-4 text-center">
-                Please allow camera access when prompted by your browser
-              </p>
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={handleCameraButton}
-                disabled={isInitializing}
-              >
-                {isInitializing ? "Requesting Access..." : "Enable Camera"}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Controls below video - fixed height */}
