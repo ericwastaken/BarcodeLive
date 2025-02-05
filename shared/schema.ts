@@ -13,6 +13,7 @@ export const scans = pgTable("scans", {
 export const insertScanSchema = createInsertSchema(scans).pick({
   content: true,
   format: true,
+  pattern: true,
 });
 
 export type InsertScan = z.infer<typeof insertScanSchema>;
