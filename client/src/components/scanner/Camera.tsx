@@ -74,10 +74,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
       playBeep().catch(console.error);
-      toast({
-        title: "Scan saved",
-        description: "The barcode has been successfully scanned and saved.",
-      });
     },
   });
 
