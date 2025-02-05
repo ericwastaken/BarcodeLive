@@ -55,7 +55,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
       playBeep().catch(console.error);
-      setIsCoolingDown(true);
+      //setIsCoolingDown(true); // Moved to startScanning function
       setTimeout(() => {
         setIsCoolingDown(false);
       }, 3000); // Increased from 1000 to 3000 ms
@@ -105,11 +105,22 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         videoRef.current,
         async (result) => {
           if (result && !isCoolingDown) {
-            console.log("Barcode detected:", result.getText());
+            console.log("Barcode detected, cooldown status:", isCoolingDown);
+            setIsCoolingDown(true);
+            console.log("Setting cooldown to true");
+
             await saveScan.mutateAsync({
               content: result.getText(),
               format: "PDF417",
             });
+
+            // Start cooldown timer immediately after detection
+            setTimeout(() => {
+              setIsCoolingDown(false);
+              console.log("Cooldown period ended");
+            }, 3000);
+          } else if (result) {
+            console.log("Barcode detected but cooling down, ignoring");
           }
         }
       );
@@ -283,7 +294,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             <p className="text-sm text-muted-foreground mb-4 text-center">
               Please allow camera access when prompted by your browser
             </p>
-            <Button 
+            <Button
               variant="default"
               className="w-full"
               onClick={handleCameraButton}
