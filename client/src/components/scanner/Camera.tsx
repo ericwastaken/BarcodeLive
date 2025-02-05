@@ -35,7 +35,24 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const scanningProcessRef = useRef<IScannerControls | null>(null);
   const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isCoolingDownRef = useRef<boolean>(false);
-  const [settings, setSettings] = useState<ScannerSettingsType>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<ScannerSettingsType>(() => {
+  try {
+    const storedSettings = localStorage.getItem('scannerSettings');
+    return storedSettings ? JSON.parse(storedSettings) : DEFAULT_SETTINGS;
+  } catch (error) {
+    console.error('Error loading settings from localStorage:', error);
+    return DEFAULT_SETTINGS;
+  }
+});
+
+// Save settings to localStorage whenever they change
+useEffect(() => {
+  try {
+    localStorage.setItem('scannerSettings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('Error saving settings to localStorage:', error);
+  }
+}, [settings]);
 
   // Reinitialize scanner when settings change
   useEffect(() => {
