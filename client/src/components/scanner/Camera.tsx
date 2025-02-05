@@ -37,6 +37,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const isCoolingDownRef = useRef<boolean>(false);
   const [settings, setSettings] = useState<ScannerSettingsType>(DEFAULT_SETTINGS);
 
+  // Reinitialize scanner when settings change
+  useEffect(() => {
+    if (isScanning && hasPermission) {
+      stopScanning();
+      startScanning().catch(console.error);
+    }
+  }, [settings]);
+
   const playBeep = async () => {
     try {
       if (!audioContextRef.current) {
@@ -206,10 +214,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           if (!result) return;
 
           const scannedData = result.getText();
-          const dataPattern = new RegExp(settings.dataPattern);
 
-          // Only process if not in cooldown and matches pattern
-          if (!isCoolingDownRef.current && dataPattern.test(scannedData)) {
+          // Process if not in cooldown
+          if (!isCoolingDownRef.current) {
             startCooldown();
             saveScan.mutateAsync({
               content: scannedData,
