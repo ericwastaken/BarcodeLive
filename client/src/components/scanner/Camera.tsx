@@ -22,6 +22,30 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const queryClient = useQueryClient();
   const [stream, setStream] = useState<MediaStream | null>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playBeep = async () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.frequency.value = 1000;
+      gainNode.gain.value = 0.1;
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.1);
+    } catch (err) {
+      console.error("Error playing beep:", err);
+    }
+  };
 
   const saveScan = useMutation({
     mutationFn: async (scan: InsertScan) => {
@@ -29,6 +53,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
+      playBeep().catch(console.error);
+      setIsCoolingDown(true);
+      setTimeout(() => {
+        setIsCoolingDown(false);
+      }, 1000);
       toast({
         title: "Scan saved",
         description: "The barcode has been successfully scanned and saved.",
@@ -137,13 +166,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           undefined,
           videoRef.current!,
           async (result) => {
-            if (result && isMounted) {
+            if (result && isMounted && !isCoolingDown) {
               console.log("Barcode detected:", result.getText());
               await saveScan.mutateAsync({
                 content: result.getText(),
                 format: "PDF417",
               });
-              setIsScanning(false);
             }
           }
         );
@@ -166,7 +194,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       // The reader will be automatically destroyed when decodeFromVideoDevice stops
       readerRef.current = null;
     };
-  }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream]);
+  }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream, isCoolingDown]);
 
   // Cleanup on unmount
   useEffect(() => {
