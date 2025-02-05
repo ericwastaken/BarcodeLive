@@ -6,6 +6,7 @@ export const scans = pgTable("scans", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
   format: text("format").notNull(),
+  pattern: text("pattern").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 

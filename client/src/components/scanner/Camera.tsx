@@ -214,6 +214,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             saveScan.mutateAsync({
               content: scannedData,
               format: "PDF417",
+              pattern: settings.dataPattern,
             }).catch(console.error);
           }
         }

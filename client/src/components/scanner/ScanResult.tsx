@@ -43,7 +43,11 @@ export function ScanResult({ className = "" }: ScanResultProps) {
             {scans.map((scan) => (
               <div
                 key={scan.id}
-                className="p-4 bg-white rounded-lg border border-gray-200"
+                className={`p-4 rounded-lg border ${
+                  new RegExp(scan.pattern).test(scan.content)
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
               >
                 <div className="text-sm text-muted-foreground">
                   {formatDistanceToNow(new Date(scan.timestamp), {
