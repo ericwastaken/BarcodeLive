@@ -80,7 +80,7 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 <FormItem>
                   <FormLabel>Cooldown Time (ms)</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" {...field} autoFocus={false} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
