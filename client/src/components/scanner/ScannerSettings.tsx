@@ -102,21 +102,18 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 </FormItem>
               )}
             />
-            <DialogFooter className="flex justify-between items-center gap-2">
+            <DialogFooter className="flex justify-center items-center gap-2">
               <Button 
                 type="button" 
                 variant="secondary" 
                 onClick={resetToDefaults}
-                className="mr-auto"
               >
                 Defaults
               </Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Save</Button>
-              </div>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save</Button>
             </DialogFooter>
           </form>
         </Form>
