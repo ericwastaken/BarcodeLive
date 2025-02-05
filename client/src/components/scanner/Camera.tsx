@@ -72,60 +72,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     setIsCoolingDown(true);
     isCoolingDownRef.current = true;
-    console.log("Starting cooldown period...");
 
     cooldownTimerRef.current = setTimeout(() => {
       setIsCoolingDown(false);
       isCoolingDownRef.current = false;
       cooldownTimerRef.current = null;
-      console.log("Cooldown period ended");
     }, 3000);
-  };
-
-  const calculateScanArea = () => {
-    if (!videoRef.current || !scannerOverlayRef.current) return null;
-
-    const video = videoRef.current;
-    const scanArea = scannerOverlayRef.current.getScanArea();
-
-    if (!scanArea) return null;
-
-    // Get the actual video dimensions
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-
-    // Get the display dimensions
-    const videoRect = video.getBoundingClientRect();
-
-    // Calculate scaling factors between video and display
-    const scaleX = videoWidth / videoRect.width;
-    const scaleY = videoHeight / videoRect.height;
-
-    // Calculate relative position of scan area in display coordinates
-    const relativeLeft = (scanArea.left - videoRect.left) / videoRect.width;
-    const relativeTop = (scanArea.top - videoRect.top) / videoRect.height;
-    const relativeWidth = scanArea.width / videoRect.width;
-    const relativeHeight = scanArea.height / videoRect.height;
-
-    console.log("Video dimensions:", {
-      actual: { width: videoWidth, height: videoHeight },
-      display: { width: videoRect.width, height: videoRect.height },
-      scale: { x: scaleX, y: scaleY }
-    });
-
-    console.log("Scan area (relative):", {
-      x: relativeLeft,
-      y: relativeTop,
-      width: relativeWidth,
-      height: relativeHeight
-    });
-
-    return {
-      left: relativeLeft,
-      top: relativeTop,
-      width: relativeWidth,
-      height: relativeHeight
-    };
   };
 
   const cleanupResources = () => {
@@ -154,7 +106,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       return;
     }
 
-    console.log("Starting camera initialization...");
     setIsInitializing(true);
 
     try {
@@ -164,7 +115,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       cleanupResources();
 
-      console.log("Requesting camera access...");
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false
@@ -235,19 +185,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
 
     try {
-      console.log("Starting barcode scanning...");
-      const scanArea = calculateScanArea();
-      console.log("Scan area:", scanArea);
-
-      const constraints = {
-        video: {
-          facingMode: "environment",
-          aspectRatio: 1,
-        }
-      };
-
       const controls = await readerRef.current.decodeFromConstraints(
-        constraints,
+        { video: { facingMode: "environment" } },
         videoRef.current,
         (result, error) => {
           if (error) {
@@ -257,50 +196,59 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
           if (!result) return;
 
-          // Get the bounding points of the barcode
+          // Get the scan area
+          const scanArea = scannerOverlayRef.current?.getScanArea();
+          if (!scanArea || !videoRef.current) return;
+
+          // Get the points from the barcode result
           const points = result.getResultPoints();
-          if (!points || points.length < 2) return;
+          if (!points || points.length === 0) return;
 
-          // Calculate the center point of the barcode
-          const centerX = points.reduce((sum, p) => sum + p.getX(), 0) / points.length;
-          const centerY = points.reduce((sum, p) => sum + p.getY(), 0) / points.length;
-
-          // Get the current scan area
-          const area = scannerOverlayRef.current?.getScanArea();
-          if (!area || !videoRef.current) return;
-
-          // Convert the center point to screen coordinates
+          // Get video element dimensions
           const videoRect = videoRef.current.getBoundingClientRect();
-          const screenX = (centerX * videoRect.width) + videoRect.left;
-          const screenY = (centerY * videoRect.height) + videoRect.top;
 
-          // Check if the barcode center is within the scan area
+          // Convert barcode points to screen coordinates
+          const barcodePoints = points.map(point => ({
+            x: point.getX() * videoRect.width + videoRect.left,
+            y: point.getY() * videoRect.height + videoRect.top
+          }));
+
+          // Calculate barcode center
+          const centerX = barcodePoints.reduce((sum, p) => sum + p.x, 0) / points.length;
+          const centerY = barcodePoints.reduce((sum, p) => sum + p.y, 0) / points.length;
+
+          // Check if center is within scan area
           const isWithinScanArea = 
-            screenX >= area.left && 
-            screenX <= (area.left + area.width) &&
-            screenY >= area.top && 
-            screenY <= (area.top + area.height);
+            centerX >= scanArea.left && 
+            centerX <= (scanArea.left + scanArea.width) &&
+            centerY >= scanArea.top && 
+            centerY <= (scanArea.top + scanArea.height);
 
-          console.log("Barcode position:", { screenX, screenY, isWithinScanArea }, "Area:", area);
+          console.log("Scan detection:", {
+            barcode: {
+              center: { x: centerX, y: centerY },
+              text: result.getText()
+            },
+            scanArea: {
+              left: scanArea.left,
+              top: scanArea.top,
+              right: scanArea.left + scanArea.width,
+              bottom: scanArea.top + scanArea.height
+            },
+            isWithinScanArea
+          });
 
           if (isWithinScanArea && !isCoolingDownRef.current) {
-            console.log("Barcode detected within scan area");
             startCooldown();
-
             saveScan.mutateAsync({
               content: result.getText(),
               format: "PDF417",
             }).catch(console.error);
-          } else if (!isWithinScanArea) {
-            console.log("Barcode detected outside scan area, ignoring");
-          } else if (isCoolingDownRef.current) {
-            console.log("Barcode detected but cooling down, ignoring");
           }
         }
       );
 
       scanningProcessRef.current = controls;
-      console.log("Barcode scanning started successfully");
     } catch (err) {
       console.error("Error starting scanning:", err);
       onError(new Error("Failed to start scanning"));
@@ -308,7 +256,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   };
 
   const stopScanning = () => {
-    console.log("Stopping scanning process...");
     if (scanningProcessRef.current?.stop) {
       scanningProcessRef.current.stop();
       scanningProcessRef.current = null;
@@ -346,7 +293,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   }, []);
 
   const handleCameraButton = () => {
-    console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission && stream) {
