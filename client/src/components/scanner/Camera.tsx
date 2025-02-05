@@ -313,7 +313,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       {/* Controls below video - fixed height */}
       {hasPermission && (
-        <div className="py-1 flex justify-center bg-background">
+        <div className="py-1 mb-1 flex justify-center bg-background">
           <Button
             size="lg"
             variant={isScanning ? "destructive" : "default"}
