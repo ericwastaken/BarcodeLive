@@ -53,23 +53,29 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
   const resetZoom = () => {
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
-      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0');
     }
   };
 
+  // Reset zoom when dialog closes
+  React.useEffect(() => {
+    if (!open) {
+      resetZoom();
+    }
+  }, [open]);
+
   const onSubmit = (data: ScannerSettings) => {
-    resetZoom();
     onSettingsChange(data);
     setOpen(false);
   };
 
   const handleClose = () => {
-    resetZoom();
     setOpen(false);
   };
 
   const handleBlur = () => {
-    resetZoom();
+    // Small delay to ensure the zoom reset happens after any mobile keyboard actions
+    setTimeout(resetZoom, 100);
   };
 
   const resetToDefaults = () => {
