@@ -252,17 +252,22 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           const centerY = points.reduce((sum, p) => sum + p.getY(), 0) / points.length;
 
           // Get the current scan area
-          const area = calculateScanArea();
-          if (!area) return;
+          const area = scannerOverlayRef.current?.getScanArea();
+          if (!area || !videoRef.current) return;
+
+          // Convert the center point to screen coordinates
+          const videoRect = videoRef.current.getBoundingClientRect();
+          const screenX = (centerX * videoRect.width) + videoRect.left;
+          const screenY = (centerY * videoRect.height) + videoRect.top;
 
           // Check if the barcode center is within the scan area
           const isWithinScanArea = 
-            centerX >= area.x && 
-            centerX <= (area.x + area.width) &&
-            centerY >= area.y && 
-            centerY <= (area.y + area.height);
+            screenX >= area.left && 
+            screenX <= (area.left + area.width) &&
+            screenY >= area.top && 
+            screenY <= (area.top + area.height);
 
-          console.log("Barcode position:", { centerX, centerY, isWithinScanArea });
+          console.log("Barcode position:", { screenX, screenY, isWithinScanArea }, "Area:", area);
 
           if (isWithinScanArea && !isCoolingDownRef.current) {
             console.log("Barcode detected within scan area");
