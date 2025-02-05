@@ -25,6 +25,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const scanningProcessRef = useRef<{ stop?: () => void } | null>(null);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isCoolingDownRef = useRef<boolean>(false);
 
   const playBeep = async () => {
     try {
@@ -55,16 +57,30 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
       playBeep().catch(console.error);
-      //setIsCoolingDown(true); // Moved to startScanning function
-      setTimeout(() => {
-        setIsCoolingDown(false);
-      }, 3000); // Increased from 1000 to 3000 ms
       toast({
         title: "Scan saved",
         description: "The barcode has been successfully scanned and saved.",
       });
     },
   });
+
+  const startCooldown = () => {
+    // Clear any existing cooldown timer
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+    }
+
+    setIsCoolingDown(true);
+    isCoolingDownRef.current = true;
+    console.log("Starting cooldown period...");
+
+    cooldownTimerRef.current = setTimeout(() => {
+      setIsCoolingDown(false);
+      isCoolingDownRef.current = false;
+      cooldownTimerRef.current = null;
+      console.log("Cooldown period ended");
+    }, 3000);
+  };
 
   const stopScanning = () => {
     console.log("Stopping scanning process...");
@@ -104,21 +120,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         undefined,
         videoRef.current,
         async (result) => {
-          if (result && !isCoolingDown) {
-            console.log("Barcode detected, cooldown status:", isCoolingDown);
-            setIsCoolingDown(true);
-            console.log("Setting cooldown to true");
+          if (result && !isCoolingDownRef.current) {
+            console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
+            startCooldown(); // Start cooldown before processing the scan
 
             await saveScan.mutateAsync({
               content: result.getText(),
               format: "PDF417",
             });
-
-            // Start cooldown timer immediately after detection
-            setTimeout(() => {
-              setIsCoolingDown(false);
-              console.log("Cooldown period ended");
-            }, 3000);
           } else if (result) {
             console.log("Barcode detected but cooling down, ignoring");
           }
@@ -145,6 +154,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (readerRef.current) {
       readerRef.current = null;
     }
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
+    isCoolingDownRef.current = false;
+    setIsCoolingDown(false);
   };
 
   const initializeCamera = async () => {
