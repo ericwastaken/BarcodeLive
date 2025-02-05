@@ -24,7 +24,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const scanningRef = useRef<boolean>(false);
+  const scanningProcessRef = useRef<{ stop?: () => void } | null>(null);
 
   const playBeep = async () => {
     try {
@@ -65,6 +65,13 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       });
     },
   });
+
+  const stopScanning = () => {
+    if (scanningProcessRef.current?.stop) {
+      scanningProcessRef.current.stop();
+      scanningProcessRef.current = null;
+    }
+  };
 
   const initializeCamera = async () => {
     if (!videoRef.current) {
@@ -116,10 +123,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       // Create the reader only once during initialization
       if (!readerRef.current) {
-        readerRef.current = new BrowserMultiFormatReader(undefined, {
-          formats: [BarcodeFormat.PDF_417]
-        });
-        console.log("Created new barcode reader with PDF417 format");
+        readerRef.current = new BrowserMultiFormatReader();
       }
 
       setHasPermission(true);
@@ -151,13 +155,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
   // Handle scanning
   useEffect(() => {
-    if (!isScanning || !videoRef.current || !hasPermission || !stream || !readerRef.current || scanningRef.current) {
+    if (!isScanning || !videoRef.current || !hasPermission || !stream || !readerRef.current) {
       return;
     }
 
     console.log("Starting barcode scanning...");
     let isMounted = true;
-    scanningRef.current = true;
 
     const startScanning = async () => {
       try {
@@ -165,11 +168,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         console.log("Video playback resumed");
 
         // Start decoding from video device
-        await readerRef.current!.decodeFromVideoDevice(
+        const controls = await readerRef.current!.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
           async (result) => {
-            if (result && isMounted && !isCoolingDown) {
+            if (!isMounted) return;
+            if (result && !isCoolingDown) {
               console.log("Barcode detected:", result.getText());
               await saveScan.mutateAsync({
                 content: result.getText(),
@@ -178,11 +182,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             }
           }
         );
+
+        scanningProcessRef.current = controls;
         console.log("Barcode scanning started");
       } catch (err) {
         console.error("Scanning error:", err);
-        scanningRef.current = false;
-        onError(new Error("Failed to start scanning"));
+        if (isMounted) {
+          onError(new Error("Failed to start scanning"));
+        }
       }
     };
 
@@ -191,26 +198,22 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     return () => {
       console.log("Cleaning up scanner...");
       isMounted = false;
-      scanningRef.current = false;
-      if (videoRef.current) {
-        videoRef.current.pause();
-        console.log("Video playback paused");
-      }
+      stopScanning();
     };
   }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream, isCoolingDown]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      stopScanning();
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
       if (videoRef.current) {
-        videoRef.current.pause();
+        videoRef.current.srcObject = null;
       }
       if (readerRef.current) {
-        readerRef.current.reset();
         readerRef.current = null;
       }
     };
@@ -221,15 +224,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission && stream) {
-      if (videoRef.current) {
-        if (isScanning) {
-          videoRef.current.pause();
-          console.log("Video paused");
-        } else {
-          videoRef.current.play().catch(console.error);
-          console.log("Video resumed");
-        }
-      }
       setIsScanning(!isScanning);
     }
   };

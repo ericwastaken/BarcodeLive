@@ -21,40 +21,46 @@ export function ScanResult({ className = "" }: ScanResultProps) {
     queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
   };
 
-  if (!scans?.length) return null;
-
   return (
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent Scans</CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={clearScans}
-          className="h-8 w-8"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Clear recent scans</span>
-        </Button>
+        {scans?.length ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={clearScans}
+            className="h-8 w-8"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Clear recent scans</span>
+          </Button>
+        ) : null}
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {scans.map((scan) => (
-            <div
-              key={scan.id}
-              className="p-4 bg-white rounded-lg border border-gray-200"
-            >
-              <div className="text-sm text-muted-foreground">
-                {formatDistanceToNow(new Date(scan.timestamp), {
-                  addSuffix: true,
-                })}
+        {scans?.length ? (
+          <div className="space-y-4">
+            {scans.map((scan) => (
+              <div
+                key={scan.id}
+                className="p-4 bg-white rounded-lg border border-gray-200"
+              >
+                <div className="text-sm text-muted-foreground">
+                  {formatDistanceToNow(new Date(scan.timestamp), {
+                    addSuffix: true,
+                  })}
+                </div>
+                <div className="mt-1 font-mono text-sm break-all">
+                  {scan.content}
+                </div>
               </div>
-              <div className="mt-1 font-mono text-sm break-all">
-                {scan.content}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground p-4">
+            No scans yet. Scan a PDF417 barcode to get started.
+          </div>
+        )}
       </CardContent>
     </Card>
   );
