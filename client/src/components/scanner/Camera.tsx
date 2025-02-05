@@ -83,8 +83,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     try {
       console.log("Starting barcode scanning...");
 
-      // Ensure video is playing
+      // Ensure video is playing and visible
       if (videoRef.current.paused) {
+        console.log("Attempting to play video...");
         await videoRef.current.play();
       }
 
@@ -239,23 +240,27 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className={`w-full h-full object-cover ${!isScanning ? 'brightness-50' : ''}`}
+        className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
         playsInline
         autoPlay
         muted
       />
-      {hasPermission && isScanning && <ScannerOverlay />}
 
-      {!isScanning && hasPermission && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-black/50 text-white px-4 py-2 rounded">
-            Scanner Paused
+      {/* Overlay and UI elements with proper z-index */}
+      <div className="absolute inset-0 z-10">
+        {hasPermission && isScanning && <ScannerOverlay />}
+
+        {!isScanning && hasPermission && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <div className="bg-black/50 text-white px-4 py-2 rounded">
+              Scanner Paused
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {!hasPermission && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
             <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
             <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
@@ -275,7 +280,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       )}
 
       {hasPermission && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[100]">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50">
           <Button
             size="lg"
             variant={isScanning ? "destructive" : "default"}
