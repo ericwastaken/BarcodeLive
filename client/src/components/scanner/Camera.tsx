@@ -313,7 +313,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       {/* Controls below video - minimal height */}
       {hasPermission && (
-        <div className="pt-1 mb-0.5 flex justify-center bg-background">
+        <div className="flex justify-center bg-background">
           <Button
             size="lg"
             variant={isScanning ? "destructive" : "default"}
