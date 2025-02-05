@@ -260,7 +260,12 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full flex flex-col">
+      {/* Title - Always visible */}
+      <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 p-4 text-center">
+        <h1 className="text-white text-xl font-semibold">Barcode Live Scanner</h1>
+      </div>
+
       <video
         ref={videoRef}
         className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
@@ -282,7 +287,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       </div>
 
       {!hasPermission && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
             <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
             <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
