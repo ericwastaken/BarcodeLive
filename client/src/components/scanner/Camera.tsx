@@ -260,7 +260,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-[100svh]">
+    <div className="flex flex-col">
       {/* Fixed header */}
       <div className="bg-primary text-primary-foreground py-3 px-6 shadow-md">
         <h1 className="text-xl font-semibold text-center">Barcode Live Scanner</h1>
@@ -311,9 +311,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         </div>
       </div>
 
-      {/* Controls below video - fixed height */}
+      {/* Controls below video - minimal height */}
       {hasPermission && (
-        <div className="py-1 mb-1 flex justify-center bg-background">
+        <div className="pt-1 mb-0.5 flex justify-center bg-background">
           <Button
             size="lg"
             variant={isScanning ? "destructive" : "default"}
