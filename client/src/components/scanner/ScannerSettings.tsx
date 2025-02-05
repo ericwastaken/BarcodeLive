@@ -28,12 +28,14 @@ const settingsSchema = z.object({
     .min(0, "Cooldown time must be positive")
     .max(10000, "Cooldown time must be less than 10 seconds"),
   dataPattern: z.string().min(1, "Pattern is required"),
+  flipHorizontal: z.boolean(),
 });
 
 // Default settings as a constant for reuse
 const DEFAULT_SETTINGS = {
   cooldownTime: 3000,
-  dataPattern: "^0934[0-9A-E]{28}$"
+  dataPattern: "^0934[0-9A-E]{28}$",
+  flipHorizontal: false
 };
 
 export type ScannerSettings = z.infer<typeof settingsSchema>;
@@ -122,6 +124,23 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                     <Input {...field} onBlur={handleBlur} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="flipHorizontal"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Flip Horizontal</FormLabel>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

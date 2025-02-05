@@ -294,6 +294,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           <video
             ref={videoRef}
             className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
+            style={{ transform: settings.flipHorizontal ? 'scaleY(-1)' : 'none' }}
             playsInline
             autoPlay
             muted
