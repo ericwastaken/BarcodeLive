@@ -233,6 +233,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission && stream) {
+      if (isScanning) {
+        stopScanning();
+      }
       setIsScanning(!isScanning);
     }
   };
@@ -243,6 +246,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         ref={videoRef}
         className={`w-full h-full object-cover ${!isScanning ? 'brightness-50' : ''}`}
         playsInline
+        autoPlay
         muted
       />
       {hasPermission && isScanning && <ScannerOverlay />}
