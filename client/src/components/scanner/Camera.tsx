@@ -24,6 +24,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const scanningRef = useRef<boolean>(false);
 
   const playBeep = async () => {
     try {
@@ -113,6 +114,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         };
       });
 
+      // Create the reader only once during initialization
+      if (!readerRef.current) {
+        readerRef.current = new BrowserMultiFormatReader(undefined, {
+          formats: [BarcodeFormat.PDF_417]
+        });
+        console.log("Created new barcode reader with PDF417 format");
+      }
+
       setHasPermission(true);
       setIsScanning(true);
 
@@ -142,27 +151,21 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
   // Handle scanning
   useEffect(() => {
-    if (!isScanning || !videoRef.current || !hasPermission || !stream) return;
+    if (!isScanning || !videoRef.current || !hasPermission || !stream || !readerRef.current || scanningRef.current) {
+      return;
+    }
 
     console.log("Starting barcode scanning...");
     let isMounted = true;
+    scanningRef.current = true;
 
     const startScanning = async () => {
       try {
-        // Create a new reader instance if needed
-        if (!readerRef.current) {
-          const reader = new BrowserMultiFormatReader(undefined, {
-            formats: [BarcodeFormat.PDF_417]
-          });
-          readerRef.current = reader;
-          console.log("Created new barcode reader with PDF417 format");
-        }
-
         await videoRef.current!.play();
         console.log("Video playback resumed");
 
         // Start decoding from video device
-        await readerRef.current.decodeFromVideoDevice(
+        await readerRef.current!.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
           async (result) => {
@@ -178,6 +181,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         console.log("Barcode scanning started");
       } catch (err) {
         console.error("Scanning error:", err);
+        scanningRef.current = false;
         onError(new Error("Failed to start scanning"));
       }
     };
@@ -187,12 +191,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     return () => {
       console.log("Cleaning up scanner...");
       isMounted = false;
+      scanningRef.current = false;
       if (videoRef.current) {
         videoRef.current.pause();
         console.log("Video playback paused");
       }
-      // The reader will be automatically destroyed when decodeFromVideoDevice stops
-      readerRef.current = null;
     };
   }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream, isCoolingDown]);
 
@@ -206,7 +209,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       if (videoRef.current) {
         videoRef.current.pause();
       }
-      readerRef.current = null;
+      if (readerRef.current) {
+        readerRef.current.reset();
+        readerRef.current = null;
+      }
     };
   }, [stream]);
 
