@@ -30,6 +30,12 @@ const settingsSchema = z.object({
   dataPattern: z.string().min(1, "Pattern is required"),
 });
 
+// Default settings as a constant for reuse
+const DEFAULT_SETTINGS = {
+  cooldownTime: 3000,
+  dataPattern: "^0934[0-9A-E]{28}$"
+};
+
 export type ScannerSettings = z.infer<typeof settingsSchema>;
 
 interface ScannerSettingsProps {
@@ -47,6 +53,10 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
   const onSubmit = (data: ScannerSettings) => {
     onSettingsChange(data);
     setOpen(false);
+  };
+
+  const resetToDefaults = () => {
+    form.reset(DEFAULT_SETTINGS);
   };
 
   return (
@@ -89,11 +99,21 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 </FormItem>
               )}
             />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+            <DialogFooter className="flex justify-between items-center gap-2">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={resetToDefaults}
+                className="mr-auto"
+              >
+                Defaults
               </Button>
-              <Button type="submit">Save</Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Save</Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>
