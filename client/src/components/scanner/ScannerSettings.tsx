@@ -52,7 +52,7 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="absolute right-4">
+        <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2">
           <Settings className="h-5 w-5" />
           <span className="sr-only">Scanner Settings</span>
         </Button>
