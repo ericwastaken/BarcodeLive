@@ -90,16 +90,30 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     if (!scanArea) return null;
 
-    // Convert the scan area from screen coordinates to video coordinates
+    // Get the actual video dimensions
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // Get the display dimensions
     const videoRect = video.getBoundingClientRect();
 
-    // Calculate relative coordinates (0-1 range)
-    const relativeLeft = Math.max(0, Math.min(1, (scanArea.left - videoRect.left) / videoRect.width));
-    const relativeTop = Math.max(0, Math.min(1, (scanArea.top - videoRect.top) / videoRect.height));
-    const relativeWidth = Math.max(0, Math.min(1, scanArea.width / videoRect.width));
-    const relativeHeight = Math.max(0, Math.min(1, scanArea.height / videoRect.height));
+    // Calculate scaling factors between video and display
+    const scaleX = videoWidth / videoRect.width;
+    const scaleY = videoHeight / videoRect.height;
 
-    console.log("Calculated scan area:", {
+    // Calculate relative position of scan area in display coordinates
+    const relativeLeft = (scanArea.left - videoRect.left) / videoRect.width;
+    const relativeTop = (scanArea.top - videoRect.top) / videoRect.height;
+    const relativeWidth = scanArea.width / videoRect.width;
+    const relativeHeight = scanArea.height / videoRect.height;
+
+    console.log("Video dimensions:", {
+      actual: { width: videoWidth, height: videoHeight },
+      display: { width: videoRect.width, height: videoRect.height },
+      scale: { x: scaleX, y: scaleY }
+    });
+
+    console.log("Scan area (relative):", {
       x: relativeLeft,
       y: relativeTop,
       width: relativeWidth,
@@ -107,8 +121,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     });
 
     return {
-      x: relativeLeft,
-      y: relativeTop,
+      left: relativeLeft,
+      top: relativeTop,
       width: relativeWidth,
       height: relativeHeight
     };
