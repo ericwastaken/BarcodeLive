@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader, BarcodeFormat } from "@zxing/browser";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Camera as CameraIcon } from "lucide-react";
@@ -73,6 +73,20 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
+  const cleanupResources = () => {
+    stopScanning();
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (readerRef.current) {
+      readerRef.current = null;
+    }
+  };
+
   const initializeCamera = async () => {
     if (!videoRef.current) {
       console.error("Video element not found during initialization");
@@ -87,21 +101,31 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         throw new Error("Camera API not supported in this browser");
       }
 
+      // Clean up any existing resources first
+      cleanupResources();
+
       console.log("Requesting camera access...");
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false
       });
 
+      if (!videoRef.current) {
+        throw new Error("Video element lost during initialization");
+      }
+
       setStream(mediaStream);
       console.log("Setting up video stream...");
 
-      videoRef.current.srcObject = mediaStream;
-      videoRef.current.setAttribute("playsinline", "true");
-      videoRef.current.muted = true;
+      // Set up video element
+      const videoElement = videoRef.current;
+      videoElement.srcObject = mediaStream;
+      videoElement.setAttribute("playsinline", "true");
+      videoElement.muted = true;
 
+      // Wait for video to be ready
       await new Promise<void>((resolve, reject) => {
-        if (!videoRef.current) {
+        if (!videoElement) {
           reject(new Error("Video element not found"));
           return;
         }
@@ -110,18 +134,21 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           reject(new Error("Video loading timed out"));
         }, 10000);
 
-        videoRef.current.onloadedmetadata = () => {
-          clearTimeout(timeoutId);
-          videoRef.current?.play()
-            .then(() => {
-              console.log("Video stream started successfully");
-              resolve();
-            })
-            .catch(reject);
+        // Listen for both loadedmetadata and loadeddata events
+        const handleVideoReady = async () => {
+          try {
+            clearTimeout(timeoutId);
+            await videoElement.play();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
         };
+
+        videoElement.addEventListener('loadedmetadata', handleVideoReady, { once: true });
       });
 
-      // Create the reader only once during initialization
+      // Initialize the barcode reader
       if (!readerRef.current) {
         readerRef.current = new BrowserMultiFormatReader();
       }
@@ -136,10 +163,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       });
     } catch (err) {
       console.error("Camera initialization error:", err);
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
+      cleanupResources();
       setHasPermission(false);
       const message = err instanceof Error ? err.message : "Failed to access camera";
       toast({
@@ -164,27 +188,28 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     const startScanning = async () => {
       try {
-        await videoRef.current!.play();
-        console.log("Video playback resumed");
+        if (!videoRef.current?.paused) {
+          console.log("Video playback active");
 
-        // Start decoding from video device
-        const controls = await readerRef.current!.decodeFromVideoDevice(
-          undefined,
-          videoRef.current!,
-          async (result) => {
-            if (!isMounted) return;
-            if (result && !isCoolingDown) {
-              console.log("Barcode detected:", result.getText());
-              await saveScan.mutateAsync({
-                content: result.getText(),
-                format: "PDF417",
-              });
+          // Start decoding from video device
+          const controls = await readerRef.current!.decodeFromVideoDevice(
+            undefined,
+            videoRef.current,
+            async (result) => {
+              if (!isMounted) return;
+              if (result && !isCoolingDown) {
+                console.log("Barcode detected:", result.getText());
+                await saveScan.mutateAsync({
+                  content: result.getText(),
+                  format: "PDF417",
+                });
+              }
             }
-          }
-        );
+          );
 
-        scanningProcessRef.current = controls;
-        console.log("Barcode scanning started");
+          scanningProcessRef.current = controls;
+          console.log("Barcode scanning started");
+        }
       } catch (err) {
         console.error("Scanning error:", err);
         if (isMounted) {
@@ -205,19 +230,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopScanning();
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      if (readerRef.current) {
-        readerRef.current = null;
-      }
+      cleanupResources();
     };
-  }, [stream]);
+  }, []);
 
   const handleCameraButton = () => {
     console.log("Camera button clicked, current state:", { hasPermission, isInitializing });
