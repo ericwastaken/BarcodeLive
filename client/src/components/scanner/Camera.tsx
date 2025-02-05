@@ -271,7 +271,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         <div className="w-full max-w-3xl h-[300px]">
           <video
             ref={videoRef}
-            className={`w-full h-full object-contain transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
+            className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
             playsInline
             autoPlay
             muted
@@ -313,7 +313,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
       {/* Controls below video - fixed height */}
       {hasPermission && (
-        <div className="p-4 flex justify-center bg-background">
+        <div className="p-2 flex justify-center bg-background">
           <Button
             size="lg"
             variant={isScanning ? "destructive" : "default"}
