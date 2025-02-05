@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Camera as CameraIcon } from "lucide-react";
@@ -25,7 +25,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const scanningProcessRef = useRef<{ stop?: () => void } | null>(null);
+  const scanningProcessRef = useRef<IScannerControls | null>(null);
   const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isCoolingDownRef = useRef<boolean>(false);
 
@@ -100,23 +100,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     // Return coordinates in the format expected by ZXing
     return {
-      left: Math.max(0, Math.min(1, relativeLeft)),
-      top: Math.max(0, Math.min(1, relativeTop)),
+      x: Math.max(0, Math.min(1, relativeLeft)),
+      y: Math.max(0, Math.min(1, relativeTop)),
       width: Math.max(0, Math.min(1, relativeWidth)),
       height: Math.max(0, Math.min(1, relativeHeight))
     };
-  };
-
-  const startVideoStream = async () => {
-    if (!videoRef.current || !stream) return false;
-    try {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      return true;
-    } catch (error) {
-      console.error("Failed to start video stream:", error);
-      return false;
-    }
   };
 
   const cleanupResources = () => {
@@ -227,31 +215,38 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
     try {
       console.log("Starting barcode scanning...");
-      const streamStarted = await startVideoStream();
-
-      if (!streamStarted) {
-        throw new Error("Failed to start video stream");
-      }
-
       const scanArea = calculateScanArea();
       console.log("Scan area:", scanArea);
 
-      const controls = await readerRef.current.decodeFromVideoElement({
-        element: videoRef.current,
-        cropArea: scanArea
-      }, async (result) => {
-        if (result && !isCoolingDownRef.current) {
-          console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
-          startCooldown(); // Start cooldown before processing the scan
-
-          await saveScan.mutateAsync({
-            content: result.getText(),
-            format: "PDF417",
-          });
-        } else if (result) {
-          console.log("Barcode detected but cooling down, ignoring");
+      const constraints = {
+        video: {
+          facingMode: "environment",
+          aspectRatio: 1,
         }
-      });
+      };
+
+      const controls = await readerRef.current.decodeFromConstraints(
+        constraints,
+        videoRef.current,
+        (result, error) => {
+          if (error) {
+            console.log("Scanning error:", error);
+            return;
+          }
+
+          if (result && !isCoolingDownRef.current) {
+            console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
+            startCooldown();
+
+            saveScan.mutateAsync({
+              content: result.getText(),
+              format: "PDF417",
+            }).catch(console.error);
+          } else if (result) {
+            console.log("Barcode detected but cooling down, ignoring");
+          }
+        }
+      );
 
       scanningProcessRef.current = controls;
       console.log("Barcode scanning started successfully");
