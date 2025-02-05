@@ -260,17 +260,17 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Fixed header outside of the video container */}
+    <div className="flex flex-col min-h-[100svh]">
+      {/* Fixed header */}
       <div className="bg-primary text-primary-foreground py-4 px-6 shadow-md">
         <h1 className="text-xl font-semibold text-center">Barcode Live Scanner</h1>
       </div>
 
-      {/* Video container */}
-      <div className="relative flex-1 min-h-0">
+      {/* Video container - using flex-1 to take remaining space */}
+      <div className="relative flex-1 min-h-0 flex items-center justify-center bg-black">
         <video
           ref={videoRef}
-          className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
+          className={`w-full h-full object-contain transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
           playsInline
           autoPlay
           muted
@@ -290,7 +290,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
         {!hasPermission && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <div className="bg-card text-card-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4 my-auto">
               <CameraIcon className="mx-auto h-12 w-12 mb-4 text-primary" />
               <h3 className="text-lg font-semibold mb-2 text-center">Camera Access Required</h3>
               <p className="text-sm text-muted-foreground mb-4 text-center">
@@ -309,7 +309,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         )}
       </div>
 
-      {/* Controls below video */}
+      {/* Controls below video - fixed height */}
       {hasPermission && (
         <div className="p-4 flex justify-center bg-background">
           <Button
