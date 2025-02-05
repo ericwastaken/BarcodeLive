@@ -1,24 +1,28 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import type { Scan } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
-import { apiRequest } from "@/lib/queryClient";
+import { useEffect, useState } from "react";
 
 interface ScanResultProps {
   className?: string;
 }
 
 export function ScanResult({ className = "" }: ScanResultProps) {
-  const queryClient = useQueryClient();
-  const { data: scans } = useQuery<Scan[]>({
-    queryKey: ["/api/scans/recent"],
-  });
+  const [scans, setScans] = useState<Scan[]>([]);
 
-  const clearScans = async () => {
-    await apiRequest("POST", "/api/scans/clear");
-    queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
+  useEffect(() => {
+    const storedScans = localStorage.getItem('scans');
+    if (storedScans) {
+      setScans(JSON.parse(storedScans));
+    }
+  }, []);
+
+  const clearScans = () => {
+    localStorage.removeItem('scans');
+    setScans([]);
   };
 
   return (

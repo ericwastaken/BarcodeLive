@@ -67,15 +67,19 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
-  const saveScan = useMutation({
-    mutationFn: async (scan: InsertScan) => {
-      await apiRequest("POST", "/api/scans", scan);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
+  const saveScan = {
+    mutateAsync: async (scan: InsertScan) => {
+      const storedScans = localStorage.getItem('scans');
+      const scans = storedScans ? JSON.parse(storedScans) : [];
+      const newScan = {
+        ...scan,
+        id: Date.now(),
+        timestamp: new Date(),
+      };
+      localStorage.setItem('scans', JSON.stringify([newScan, ...scans].slice(0, 10)));
       playBeep().catch(console.error);
-    },
-  });
+    }
+  };
 
   const startCooldown = () => {
     if (cooldownTimerRef.current) {
