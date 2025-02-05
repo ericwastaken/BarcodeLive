@@ -102,20 +102,30 @@ export function ScannerSettings({ settings, onSettingsChange }: ScannerSettingsP
                 </FormItem>
               )}
             />
-            <DialogFooter className="inline-flex whitespace-nowrap justify-center items-center gap-2">
+            <div className="flex flex-row justify-center items-center gap-2 mt-6">
               <Button 
                 type="button" 
                 variant="secondary" 
                 onClick={resetToDefaults}
-                className="w-[80px]"
+                className="flex-shrink-0 min-w-[80px]"
               >
                 Defaults
               </Button>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-[80px]">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setOpen(false)} 
+                className="flex-shrink-0 min-w-[80px]"
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="w-[80px]">Save</Button>
-            </DialogFooter>
+              <Button 
+                type="submit" 
+                className="flex-shrink-0 min-w-[80px]"
+              >
+                Save
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>
