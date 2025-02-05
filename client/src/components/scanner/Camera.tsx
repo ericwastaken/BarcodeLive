@@ -76,7 +76,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         id: Date.now(),
         timestamp: new Date(),
       };
-      localStorage.setItem('scans', JSON.stringify([newScan, ...scans].slice(0, 10)));
+      localStorage.setItem('scans', JSON.stringify([newScan, ...scans]));
       playBeep().catch(console.error);
     }
   };
