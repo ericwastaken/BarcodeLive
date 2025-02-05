@@ -58,7 +58,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       setIsCoolingDown(true);
       setTimeout(() => {
         setIsCoolingDown(false);
-      }, 1000);
+      }, 3000); // Increased from 1000 to 3000 ms
       toast({
         title: "Scan saved",
         description: "The barcode has been successfully scanned and saved.",
