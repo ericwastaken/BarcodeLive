@@ -267,8 +267,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       </div>
 
       {/* Video container - using flex-1 to take remaining space */}
-      <div className="relative flex-1 min-h-0 flex items-center justify-center bg-black">
-        <div className="w-full max-w-2xl aspect-video">
+      <div className="relative flex-1 min-h-0 flex items-center justify-center bg-black max-h-[400px]">
+        <div className="w-full max-w-3xl h-[300px]">
           <video
             ref={videoRef}
             className={`w-full h-full object-contain transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
