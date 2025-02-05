@@ -7,12 +7,19 @@ import { ScannerOverlay, type ScannerOverlayHandle } from "@/components/scanner/
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { InsertScan } from "@shared/schema";
+import { ScannerSettings, type ScannerSettings as ScannerSettingsType } from "./ScannerSettings";
 
 interface CameraProps {
   onError: (error: Error) => void;
   isScanning: boolean;
   setIsScanning: (scanning: boolean) => void;
 }
+
+// Default scanner settings
+const DEFAULT_SETTINGS: ScannerSettingsType = {
+  cooldownTime: 3000,
+  dataPattern: "^0934[0-9A-E]{28}$"
+};
 
 export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,6 +35,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const scanningProcessRef = useRef<IScannerControls | null>(null);
   const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isCoolingDownRef = useRef<boolean>(false);
+  const [settings, setSettings] = useState<ScannerSettingsType>(DEFAULT_SETTINGS);
 
   const playBeep = async () => {
     try {
@@ -77,7 +85,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       setIsCoolingDown(false);
       isCoolingDownRef.current = false;
       cooldownTimerRef.current = null;
-    }, 3000);
+    }, settings.cooldownTime);
   };
 
   const cleanupResources = () => {
@@ -197,11 +205,14 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
 
           if (!result) return;
 
-          // Only process if not in cooldown
-          if (!isCoolingDownRef.current) {
+          const scannedData = result.getText();
+          const dataPattern = new RegExp(settings.dataPattern);
+
+          // Only process if not in cooldown and matches pattern
+          if (!isCoolingDownRef.current && dataPattern.test(scannedData)) {
             startCooldown();
             saveScan.mutateAsync({
-              content: result.getText(),
+              content: scannedData,
               format: "PDF417",
             }).catch(console.error);
           }
@@ -262,8 +273,9 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   return (
     <div className="flex flex-col">
       {/* Fixed header */}
-      <div className="bg-primary text-primary-foreground py-3 px-6 shadow-md">
+      <div className="bg-primary text-primary-foreground py-3 px-6 shadow-md relative">
         <h1 className="text-xl font-semibold text-center">Barcode Live Scanner</h1>
+        <ScannerSettings settings={settings} onSettingsChange={setSettings} />
       </div>
 
       {/* Video container - using flex-1 to take remaining space */}
