@@ -67,9 +67,46 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   });
 
   const stopScanning = () => {
+    console.log("Stopping scanning process...");
     if (scanningProcessRef.current?.stop) {
       scanningProcessRef.current.stop();
       scanningProcessRef.current = null;
+    }
+  };
+
+  const startScanning = async () => {
+    if (!videoRef.current || !readerRef.current || !stream) {
+      console.log("Cannot start scanning: missing required references");
+      return;
+    }
+
+    try {
+      console.log("Starting barcode scanning...");
+
+      // Ensure video is playing
+      if (videoRef.current.paused) {
+        await videoRef.current.play();
+      }
+
+      const controls = await readerRef.current.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        async (result) => {
+          if (result && !isCoolingDown) {
+            console.log("Barcode detected:", result.getText());
+            await saveScan.mutateAsync({
+              content: result.getText(),
+              format: "PDF417",
+            });
+          }
+        }
+      );
+
+      scanningProcessRef.current = controls;
+      console.log("Barcode scanning started successfully");
+    } catch (err) {
+      console.error("Error starting scanning:", err);
+      onError(new Error("Failed to start scanning"));
     }
   };
 
@@ -171,55 +208,16 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
-  // Handle scanning
+  // Handle scanning state changes
   useEffect(() => {
-    if (!isScanning || !videoRef.current || !hasPermission || !stream || !readerRef.current) {
-      return;
-    }
+    if (!hasPermission || !stream) return;
 
-    console.log("Starting barcode scanning...");
-    let isMounted = true;
-
-    const startScanning = async () => {
-      try {
-        if (!videoRef.current?.paused) {
-          console.log("Video playback active");
-
-          // Start decoding from video device
-          const controls = await readerRef.current!.decodeFromVideoDevice(
-            undefined,
-            videoRef.current,
-            async (result) => {
-              if (!isMounted) return;
-              if (result && !isCoolingDown) {
-                console.log("Barcode detected:", result.getText());
-                await saveScan.mutateAsync({
-                  content: result.getText(),
-                  format: "PDF417",
-                });
-              }
-            }
-          );
-
-          scanningProcessRef.current = controls;
-          console.log("Barcode scanning started");
-        }
-      } catch (err) {
-        console.error("Scanning error:", err);
-        if (isMounted) {
-          onError(new Error("Failed to start scanning"));
-        }
-      }
-    };
-
-    startScanning();
-
-    return () => {
-      console.log("Cleaning up scanner...");
-      isMounted = false;
+    if (isScanning) {
+      startScanning();
+    } else {
       stopScanning();
-    };
-  }, [isScanning, hasPermission, onError, saveScan, setIsScanning, stream, isCoolingDown]);
+    }
+  }, [isScanning, hasPermission, stream]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -233,9 +231,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     if (!hasPermission && !isInitializing) {
       initializeCamera();
     } else if (hasPermission && stream) {
-      if (isScanning) {
-        stopScanning();
-      }
       setIsScanning(!isScanning);
     }
   };
