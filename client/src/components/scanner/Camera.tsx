@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
+import { BrowserMultiFormatReader, IScannerControls, BarcodeFormat } from "@zxing/browser";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Camera as CameraIcon } from "lucide-react";
@@ -125,7 +125,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       }
 
       setStream(mediaStream);
-      console.log("Setting up video stream...");
 
       const videoElement = videoRef.current;
       videoElement.srcObject = mediaStream;
@@ -156,7 +155,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       });
 
       if (!readerRef.current) {
-        readerRef.current = new BrowserMultiFormatReader();
+        // Configure reader to only detect PDF417 barcodes
+        const hints = new Map();
+        hints.set(2, [BarcodeFormat.PDF_417]);
+        readerRef.current = new BrowserMultiFormatReader(hints);
       }
 
       setHasPermission(true);
@@ -190,55 +192,13 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         videoRef.current,
         (result, error) => {
           if (error) {
-            console.log("Scanning error:", error);
             return;
           }
 
           if (!result) return;
 
-          // Get the scan area
-          const scanArea = scannerOverlayRef.current?.getScanArea();
-          if (!scanArea || !videoRef.current) return;
-
-          // Get the points from the barcode result
-          const points = result.getResultPoints();
-          if (!points || points.length === 0) return;
-
-          // Get video element dimensions
-          const videoRect = videoRef.current.getBoundingClientRect();
-
-          // Convert barcode points to screen coordinates
-          const barcodePoints = points.map(point => ({
-            x: point.getX() * videoRect.width + videoRect.left,
-            y: point.getY() * videoRect.height + videoRect.top
-          }));
-
-          // Calculate barcode center
-          const centerX = barcodePoints.reduce((sum, p) => sum + p.x, 0) / points.length;
-          const centerY = barcodePoints.reduce((sum, p) => sum + p.y, 0) / points.length;
-
-          // Check if center is within scan area
-          const isWithinScanArea = 
-            centerX >= scanArea.left && 
-            centerX <= (scanArea.left + scanArea.width) &&
-            centerY >= scanArea.top && 
-            centerY <= (scanArea.top + scanArea.height);
-
-          console.log("Scan detection:", {
-            barcode: {
-              center: { x: centerX, y: centerY },
-              text: result.getText()
-            },
-            scanArea: {
-              left: scanArea.left,
-              top: scanArea.top,
-              right: scanArea.left + scanArea.width,
-              bottom: scanArea.top + scanArea.height
-            },
-            isWithinScanArea
-          });
-
-          if (isWithinScanArea && !isCoolingDownRef.current) {
+          // Only process if not in cooldown
+          if (!isCoolingDownRef.current) {
             startCooldown();
             saveScan.mutateAsync({
               content: result.getText(),
@@ -269,7 +229,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     const handleScanningStateChange = async () => {
       try {
         if (isScanning) {
-          // Add a small delay to ensure video is ready
           setTimeout(async () => {
             await startScanning();
           }, 1000);
