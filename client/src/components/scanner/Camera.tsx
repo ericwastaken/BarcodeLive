@@ -267,7 +267,7 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       </div>
 
       {/* Video container */}
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-h-0">
         <video
           ref={videoRef}
           className={`w-full h-full object-cover transition-all duration-200 ${!isScanning ? 'opacity-50' : 'opacity-100'}`}
@@ -307,28 +307,29 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             </div>
           </div>
         )}
-
-        {hasPermission && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50">
-            <Button
-              size="lg"
-              variant={isScanning ? "destructive" : "default"}
-              onClick={handleCameraButton}
-              disabled={isInitializing}
-            >
-              {isScanning ? (
-                <>
-                  <Pause className="mr-2 h-4 w-4" /> Pause
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" /> Resume
-                </>
-              )}
-            </Button>
-          </div>
-        )}
       </div>
+
+      {/* Controls below video */}
+      {hasPermission && (
+        <div className="p-4 flex justify-center bg-background">
+          <Button
+            size="lg"
+            variant={isScanning ? "destructive" : "default"}
+            onClick={handleCameraButton}
+            disabled={isInitializing}
+          >
+            {isScanning ? (
+              <>
+                <Pause className="mr-2 h-4 w-4" /> Pause
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" /> Resume
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
