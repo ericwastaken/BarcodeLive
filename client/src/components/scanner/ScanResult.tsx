@@ -1,23 +1,41 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import type { Scan } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ScanResultProps {
   className?: string;
 }
 
 export function ScanResult({ className = "" }: ScanResultProps) {
+  const queryClient = useQueryClient();
   const { data: scans } = useQuery<Scan[]>({
     queryKey: ["/api/scans/recent"],
   });
+
+  const clearScans = async () => {
+    await apiRequest("POST", "/api/scans/clear");
+    queryClient.invalidateQueries({ queryKey: ["/api/scans/recent"] });
+  };
 
   if (!scans?.length) return null;
 
   return (
     <Card className={className}>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent Scans</CardTitle>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={clearScans}
+          className="h-8 w-8"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Clear recent scans</span>
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

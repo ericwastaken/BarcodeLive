@@ -20,6 +20,11 @@ export function registerRoutes(app: Express): Server {
     res.json(scans);
   });
 
+  app.post("/api/scans/clear", async (_req, res) => {
+    await storage.clearScans();
+    res.json({ message: "Scans cleared successfully" });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
