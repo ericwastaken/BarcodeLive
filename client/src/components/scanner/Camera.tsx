@@ -74,19 +74,30 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
+  const startVideoStream = async () => {
+    if (!videoRef.current || !stream) return false;
+    try {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      return true;
+    } catch (error) {
+      console.error("Failed to start video stream:", error);
+      return false;
+    }
+  };
+
   const startScanning = async () => {
     if (!videoRef.current || !readerRef.current || !stream) {
-      console.log("Cannot start scanning: missing required references");
+      console.error("Cannot start scanning: missing required references");
       return;
     }
 
     try {
       console.log("Starting barcode scanning...");
+      const streamStarted = await startVideoStream();
 
-      // Ensure video is playing and visible
-      if (videoRef.current.paused) {
-        console.log("Attempting to play video...");
-        await videoRef.current.play();
+      if (!streamStarted) {
+        throw new Error("Failed to start video stream");
       }
 
       const controls = await readerRef.current.decodeFromVideoDevice(
@@ -139,7 +150,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         throw new Error("Camera API not supported in this browser");
       }
 
-      // Clean up any existing resources first
       cleanupResources();
 
       console.log("Requesting camera access...");
@@ -155,13 +165,11 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       setStream(mediaStream);
       console.log("Setting up video stream...");
 
-      // Set up video element
       const videoElement = videoRef.current;
       videoElement.srcObject = mediaStream;
       videoElement.setAttribute("playsinline", "true");
       videoElement.muted = true;
 
-      // Wait for video to be ready
       await new Promise<void>((resolve, reject) => {
         if (!videoElement) {
           reject(new Error("Video element not found"));
@@ -185,7 +193,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         videoElement.addEventListener('loadedmetadata', handleVideoReady, { once: true });
       });
 
-      // Initialize the barcode reader
       if (!readerRef.current) {
         readerRef.current = new BrowserMultiFormatReader();
       }
@@ -213,11 +220,20 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   useEffect(() => {
     if (!hasPermission || !stream) return;
 
-    if (isScanning) {
-      startScanning();
-    } else {
-      stopScanning();
-    }
+    const handleScanningStateChange = async () => {
+      try {
+        if (isScanning) {
+          await startScanning();
+        } else {
+          stopScanning();
+        }
+      } catch (error) {
+        console.error("Error handling scanning state change:", error);
+        onError(new Error("Failed to change scanning state"));
+      }
+    };
+
+    handleScanningStateChange();
   }, [isScanning, hasPermission, stream]);
 
   // Cleanup on unmount
