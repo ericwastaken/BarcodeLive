@@ -93,17 +93,24 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     // Convert the scan area from screen coordinates to video coordinates
     const videoRect = video.getBoundingClientRect();
 
-    const relativeLeft = (scanArea.left - videoRect.left) / videoRect.width;
-    const relativeTop = (scanArea.top - videoRect.top) / videoRect.height;
-    const relativeWidth = scanArea.width / videoRect.width;
-    const relativeHeight = scanArea.height / videoRect.height;
+    // Calculate relative coordinates (0-1 range)
+    const relativeLeft = Math.max(0, Math.min(1, (scanArea.left - videoRect.left) / videoRect.width));
+    const relativeTop = Math.max(0, Math.min(1, (scanArea.top - videoRect.top) / videoRect.height));
+    const relativeWidth = Math.max(0, Math.min(1, scanArea.width / videoRect.width));
+    const relativeHeight = Math.max(0, Math.min(1, scanArea.height / videoRect.height));
 
-    // Return coordinates in the format expected by ZXing
+    console.log("Calculated scan area:", {
+      x: relativeLeft,
+      y: relativeTop,
+      width: relativeWidth,
+      height: relativeHeight
+    });
+
     return {
-      x: Math.max(0, Math.min(1, relativeLeft)),
-      y: Math.max(0, Math.min(1, relativeTop)),
-      width: Math.max(0, Math.min(1, relativeWidth)),
-      height: Math.max(0, Math.min(1, relativeHeight))
+      x: relativeLeft,
+      y: relativeTop,
+      width: relativeWidth,
+      height: relativeHeight
     };
   };
 
@@ -234,15 +241,40 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
             return;
           }
 
-          if (result && !isCoolingDownRef.current) {
-            console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
+          if (!result) return;
+
+          // Get the bounding points of the barcode
+          const points = result.getResultPoints();
+          if (!points || points.length < 2) return;
+
+          // Calculate the center point of the barcode
+          const centerX = points.reduce((sum, p) => sum + p.getX(), 0) / points.length;
+          const centerY = points.reduce((sum, p) => sum + p.getY(), 0) / points.length;
+
+          // Get the current scan area
+          const area = calculateScanArea();
+          if (!area) return;
+
+          // Check if the barcode center is within the scan area
+          const isWithinScanArea = 
+            centerX >= area.x && 
+            centerX <= (area.x + area.width) &&
+            centerY >= area.y && 
+            centerY <= (area.y + area.height);
+
+          console.log("Barcode position:", { centerX, centerY, isWithinScanArea });
+
+          if (isWithinScanArea && !isCoolingDownRef.current) {
+            console.log("Barcode detected within scan area");
             startCooldown();
 
             saveScan.mutateAsync({
               content: result.getText(),
               format: "PDF417",
             }).catch(console.error);
-          } else if (result) {
+          } else if (!isWithinScanArea) {
+            console.log("Barcode detected outside scan area, ignoring");
+          } else if (isCoolingDownRef.current) {
             console.log("Barcode detected but cooling down, ignoring");
           }
         }
