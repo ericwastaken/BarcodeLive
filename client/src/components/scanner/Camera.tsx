@@ -134,7 +134,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
           reject(new Error("Video loading timed out"));
         }, 10000);
 
-        // Listen for both loadedmetadata and loadeddata events
         const handleVideoReady = async () => {
           try {
             clearTimeout(timeoutId);
@@ -156,11 +155,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
       setHasPermission(true);
       setIsScanning(true);
 
-      console.log("Camera initialization complete");
-      toast({
-        title: "Camera Ready",
-        description: "Position the PDF417 barcode within the frame",
-      });
     } catch (err) {
       console.error("Camera initialization error:", err);
       cleanupResources();
