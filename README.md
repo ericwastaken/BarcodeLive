@@ -8,8 +8,8 @@ A modern, responsive PDF417 barcode scanner web application built with React, Ty
 - Real-time PDF417 barcode scanning using device camera
 - Clean, modern UI built with shadcn/ui components
 - Responsive design that works on both desktop and mobile
-- Customizable scanner settings
-- Toast notifications for scan results and errors
+- Customizable scanner settings, including cooldown time in between scans, regex data matching and camera stream horizontal/vertical flip
+- Toast notifications for errors
 - Built with TypeScript for type safety
 
 ## Getting Started
