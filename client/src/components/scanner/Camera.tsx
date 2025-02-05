@@ -3,7 +3,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Camera as CameraIcon } from "lucide-react";
-import { ScannerOverlay } from "@/components/scanner/ScannerOverlay";
+import { ScannerOverlay, type ScannerOverlayHandle } from "@/components/scanner/ScannerOverlay";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { InsertScan } from "@shared/schema";
@@ -16,6 +16,7 @@ interface CameraProps {
 
 export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerOverlayRef = useRef<ScannerOverlayHandle>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const { toast } = useToast();
@@ -65,7 +66,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
   });
 
   const startCooldown = () => {
-    // Clear any existing cooldown timer
     if (cooldownTimerRef.current) {
       clearTimeout(cooldownTimerRef.current);
     }
@@ -82,12 +82,29 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }, 3000);
   };
 
-  const stopScanning = () => {
-    console.log("Stopping scanning process...");
-    if (scanningProcessRef.current?.stop) {
-      scanningProcessRef.current.stop();
-      scanningProcessRef.current = null;
-    }
+  const calculateScanArea = () => {
+    if (!videoRef.current || !scannerOverlayRef.current) return null;
+
+    const video = videoRef.current;
+    const scanArea = scannerOverlayRef.current.getScanArea();
+
+    if (!scanArea) return null;
+
+    // Convert the scan area from screen coordinates to video coordinates
+    const videoRect = video.getBoundingClientRect();
+
+    const relativeLeft = (scanArea.left - videoRect.left) / videoRect.width;
+    const relativeTop = (scanArea.top - videoRect.top) / videoRect.height;
+    const relativeWidth = scanArea.width / videoRect.width;
+    const relativeHeight = scanArea.height / videoRect.height;
+
+    // Return coordinates in the format expected by ZXing
+    return {
+      left: Math.max(0, Math.min(1, relativeLeft)),
+      top: Math.max(0, Math.min(1, relativeTop)),
+      width: Math.max(0, Math.min(1, relativeWidth)),
+      height: Math.max(0, Math.min(1, relativeHeight))
+    };
   };
 
   const startVideoStream = async () => {
@@ -99,46 +116,6 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     } catch (error) {
       console.error("Failed to start video stream:", error);
       return false;
-    }
-  };
-
-  const startScanning = async () => {
-    if (!videoRef.current || !readerRef.current || !stream) {
-      console.error("Cannot start scanning: missing required references");
-      return;
-    }
-
-    try {
-      console.log("Starting barcode scanning...");
-      const streamStarted = await startVideoStream();
-
-      if (!streamStarted) {
-        throw new Error("Failed to start video stream");
-      }
-
-      const controls = await readerRef.current.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        async (result) => {
-          if (result && !isCoolingDownRef.current) {
-            console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
-            startCooldown(); // Start cooldown before processing the scan
-
-            await saveScan.mutateAsync({
-              content: result.getText(),
-              format: "PDF417",
-            });
-          } else if (result) {
-            console.log("Barcode detected but cooling down, ignoring");
-          }
-        }
-      );
-
-      scanningProcessRef.current = controls;
-      console.log("Barcode scanning started successfully");
-    } catch (err) {
-      console.error("Error starting scanning:", err);
-      onError(new Error("Failed to start scanning"));
     }
   };
 
@@ -242,6 +219,56 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     }
   };
 
+  const startScanning = async () => {
+    if (!videoRef.current || !readerRef.current || !stream) {
+      console.error("Cannot start scanning: missing required references");
+      return;
+    }
+
+    try {
+      console.log("Starting barcode scanning...");
+      const streamStarted = await startVideoStream();
+
+      if (!streamStarted) {
+        throw new Error("Failed to start video stream");
+      }
+
+      const scanArea = calculateScanArea();
+      console.log("Scan area:", scanArea);
+
+      const controls = await readerRef.current.decodeFromVideoElement({
+        element: videoRef.current,
+        cropArea: scanArea
+      }, async (result) => {
+        if (result && !isCoolingDownRef.current) {
+          console.log("Barcode detected, cooldown status:", isCoolingDownRef.current);
+          startCooldown(); // Start cooldown before processing the scan
+
+          await saveScan.mutateAsync({
+            content: result.getText(),
+            format: "PDF417",
+          });
+        } else if (result) {
+          console.log("Barcode detected but cooling down, ignoring");
+        }
+      });
+
+      scanningProcessRef.current = controls;
+      console.log("Barcode scanning started successfully");
+    } catch (err) {
+      console.error("Error starting scanning:", err);
+      onError(new Error("Failed to start scanning"));
+    }
+  };
+
+  const stopScanning = () => {
+    console.log("Stopping scanning process...");
+    if (scanningProcessRef.current?.stop) {
+      scanningProcessRef.current.stop();
+      scanningProcessRef.current = null;
+    }
+  };
+
   // Handle scanning state changes
   useEffect(() => {
     if (!hasPermission || !stream) return;
@@ -249,7 +276,10 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
     const handleScanningStateChange = async () => {
       try {
         if (isScanning) {
-          await startScanning();
+          // Add a small delay to ensure video is ready
+          setTimeout(async () => {
+            await startScanning();
+          }, 1000);
         } else {
           stopScanning();
         }
@@ -288,9 +318,8 @@ export function Camera({ onError, isScanning, setIsScanning }: CameraProps) {
         muted
       />
 
-      {/* Overlay and UI elements with proper z-index */}
       <div className="absolute inset-0 z-10">
-        {hasPermission && isScanning && <ScannerOverlay />}
+        {hasPermission && isScanning && <ScannerOverlay ref={scannerOverlayRef} />}
 
         {!isScanning && hasPermission && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
